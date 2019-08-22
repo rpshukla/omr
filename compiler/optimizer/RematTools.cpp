@@ -123,7 +123,24 @@ bool RematTools::getNextTreeTop(TR::TreeTop *&treeTop, TR_BitVector *blocksToVis
    TR_ASSERT(0, "there should always be a remaining block to visit");
    return false;
    }
-   
+
+static bool isCallSafeToRemat(TR::Node *node)
+   {
+   if (!node->getOpCode().isFunctionCall())
+      return false;
+
+   TR::ResolvedMethodSymbol *symbol = node->getSymbol()->getResolvedMethodSymbol();
+   if (!symbol)
+      return false;
+
+   switch (symbol->getRecognizedMethod())
+      {
+      case TR::com_ibm_jit_JITHelpers_intrinsicIndexOfUTF16:
+         return true;
+      }
+   return false;
+   }
+ 
 /*
  * This function is used to walk the nodes from each of the privatized inliner
  * args down to (a) gather nodes we need to check for safety and (b) prempt
@@ -141,7 +158,7 @@ TR_YesNoMaybe RematTools::gatherNodesToCheck(TR::Compilation *comp,
    visitedNodes[currentNode->getGlobalIndex()] = true;
 
    TR::ILOpCode &opCode = currentNode->getOpCode();
-   if (opCode.hasSymbolReference() && !opCode.isLoad())
+   if (opCode.hasSymbolReference() && !opCode.isLoad() && !isCallSafeToRemat(currentNode))
       {
       if (trace)
          traceMsg(comp, "  priv arg remat: Can't fully remat [%p] due to [%p] - non-load with a symref", privArg, currentNode);
@@ -195,7 +212,9 @@ TR_YesNoMaybe RematTools::gatherNodesToCheck(TR::Compilation *comp,
       }
    else if (opCode.isArithmetic()  || opCode.isConversion() ||
             opCode.isMax()         || opCode.isMin()        ||
-            opCode.isArrayLength() || (opCode.isBooleanCompare() && !opCode.isBranch())
+            opCode.isArrayLength() || (opCode.isBooleanCompare() && !opCode.isBranch() ||
+            opCode.isTernary()     || currentNode->getOpCodeValue() == TR::PassThrough ||
+            isCallSafeToRemat(currentNode))
            )
       {
       // gather the child nodes of interest separately until we know it is worth checking them
