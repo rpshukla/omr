@@ -1976,6 +1976,93 @@ static TR::SymbolReference *getUniqueSymRef(TR::Node *node, bool &isLegal , TR::
    return savedSymRef;
    }
 
+static bool evaluateIntComparison(TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t left, int64_t right)
+   {
+   switch (compareType)
+      {
+      case TR_cmpEQ:
+         return left == right;
+         break;
+      case TR_cmpNE:
+         return left != right;
+         break;
+      case TR_cmpLT:
+         return isUnsignedCompare ? (uint64_t)left < (uint64_t)right : left < right;
+         break;
+      case TR_cmpLE:
+         return isUnsignedCompare ? (uint64_t)left <= (uint64_t)right : left <= right;
+         break;
+      case TR_cmpGT:
+         return isUnsignedCompare ? (uint64_t)left > (uint64_t)right : left > right;
+         break;
+      case TR_cmpGE:
+         return isUnsignedCompare ? (uint64_t)left >= (uint64_t)right : left >= right;
+         break;
+      }
+   }
+
+static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node, TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t constant)
+   {
+   bool toReturn = true;
+   if (visited.contains(node))
+      return toReturn;
+
+   visited.add(node);
+
+   if (node->getOpCode().isTernary() 
+       && node->getDataType().isIntegral()
+       && node->getReferenceCount() == 1)
+      {
+      TR::Node *left = node->getChild(1);
+      TR::Node *right = node->getChild(2);
+      if (left->getOpCode().isLoadConst())
+         {
+         node->setAndIncChild(1, evaluateIntComparison(compareType, isUnsignedCompare, left->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(left, left->getDataType()) : TR::Node::createConstZeroValue(left, left->getDataType()));
+         left->decReferenceCount();
+         }
+      else
+         {
+         toReturn |= processSubTreeLeavesForITernaryCompare(visited, left, compareType, isUnsignedCompare, constant);
+         }
+      if (right->getOpCode().isLoadConst())
+         {
+         node->setAndIncChild(2, evaluateIntComparison(compareType, isUnsignedCompare, right->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(right, right->getDataType()) : TR::Node::createConstZeroValue(right, right->getDataType()));
+         left->decReferenceCount();
+         }
+      else
+         {
+         toReturn |= processSubTreeLeavesForITernaryCompare(visited, right, compareType, isUnsignedCompare, constant);
+         }
+      }
+   else
+      {
+      toReturn = false;
+      }
+   return toReturn;
+   }
+
+TR::Node *ternarySimplifier(TR::Node *, TR::Block *, TR::Simplifier *s);
+
+static void simplifyITernaryCompare(TR::Node *compare, TR::Simplifier *s)
+   {
+   if (compare->getOpCode().isBooleanCompare()
+       && compare->getSecondChild()->getOpCode().isLoadConst()
+       && compare->getSecondChild()->getOpCode().isInteger()
+       && compare->getFirstChild()->getOpCode().isInteger()
+       && compare->getFirstChild()->getOpCode().isTernary()
+       && compare->getFirstChild()->getReferenceCount() == 1)
+      {
+      TR::NodeChecklist visited(s->comp());
+      TR_ComparisonTypes compareType = TR::ILOpCode::getCompareType(compare->getOpCodeValue());
+      bool isUnsignedCompare = TR::ILOpCode(compare->getOpCode()).isUnsignedCompare();
+      if (processSubTreeLeavesForITernaryCompare(visited, compare->getFirstChild(), compareType, isUnsignedCompare, compare->getSecondChild()->get64bitIntegralValue()))
+         {
+         s->replaceNode(compare->getSecondChild(), TR::Node::createConstZeroValue(compare->getSecondChild(), compare->getSecondChild()->getDataType()), s->_curTree);
+         TR::Node::recreate(compare, TR::ILOpCode(TR::ILOpCode::compareOpCode(compare->getFirstChild()->getDataType(), TR_cmpNE, isUnsignedCompare)).convertCmpToIfCmp());
+         }
+      }
+   }
+
 // We handle two kind of cases here:
 // 1. an ifcmp is comparing with a const (or variable a), it is the first real instruction in the block
 //    the other operand is defined in another blocks, at least one of the def is const (or a),
@@ -11621,7 +11708,7 @@ TR::Node *bxorSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    if (firstChild->getOpCode().isLoadConst() && secondChild->getOpCode().isLoadConst())
       {
       foldByteConstant(node, firstChild->getByte()^secondChild->getByte(), s, false /* !anchorChildren*/);
-      return node;
+return node;
       }
 
    orderChildren(node, firstChild, secondChild, s);
@@ -13154,6 +13241,7 @@ TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    addressCompareConversion(node, s);
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    if (s->getLastRun())
       convertToTestUnderMask(node, block, s);
 
@@ -13259,6 +13347,7 @@ TR::Node *ificmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    addressCompareConversion(node, s);
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
 
    return node;
    }
@@ -13304,6 +13393,7 @@ TR::Node *ificmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13348,6 +13438,7 @@ TR::Node *ificmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    removeArithmeticsUnderIntegralCompare(node, s);
 
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13392,6 +13483,7 @@ TR::Node *ificmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    removeArithmeticsUnderIntegralCompare(node, s);
 
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13439,6 +13531,7 @@ TR::Node *ificmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13478,6 +13571,7 @@ TR::Node *iflcmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13517,6 +13611,7 @@ TR::Node *iflcmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    removeArithmeticsUnderIntegralCompare(node, s);
 
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13554,6 +13649,7 @@ TR::Node *iflcmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
       }
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13591,6 +13687,7 @@ TR::Node *iflcmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
       }
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13628,6 +13725,7 @@ TR::Node *iflcmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
       }
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13671,6 +13769,8 @@ TR::Node *iflcmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
+   simplifyITernaryCompare(node, s);
+   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13922,6 +14022,7 @@ TR::Node *ifacmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    partialRedundantCompareElimination(node, block, s);
 
    ifjlClassSimplifier(node, s);
+   simplifyITernaryCompare(node, s);
 
    return node;
    }
@@ -13955,6 +14056,7 @@ TR::Node *ifacmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    partialRedundantCompareElimination(node, block, s);
 
    ifjlClassSimplifier(node, s);
+   simplifyITernaryCompare(node, s);
 
    return node;
    }
@@ -15450,6 +15552,19 @@ TR::Node *endBlockSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 // Ternary
 //
 
+static bool isBooleanExpression(TR::Node *node)
+   {
+   if (node->getOpCode().isBooleanCompare() && !node->getOpCode().isBranch())
+      return true;
+   if (node->getOpCode().isBitwiseLogical())
+      return isBooleanExpression(node->getFirstChild()) && isBooleanExpression(node->getSecondChild());
+   if (node->getOpCode().isTernary() && node->getOpCode().isInteger())
+      return isBooleanExpression(node->getChild(1)) && isBooleanExpression(node->getChild(2));
+   if (node->getOpCode().isLoadConst() && node->getOpCode().isInteger())
+      return node->get64bitIntegralValue() == 0 || node->get64bitIntegralValue() == 1;
+   return false;
+   }
+
 TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
    simplifyChildren(node, block, s);
@@ -15469,6 +15584,99 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
       if (node->getChild(1)->getOpCode().isInteger() && node->getChild(2)->getOpCode().isInteger())
          if (node->getChild(1)->get64bitIntegralValue() == node->getChild(2)->get64bitIntegralValue())
             return s->replaceNode(node, node->getChild(1), s->_curTree);
+
+   if (node->getOpCode().isInteger()
+       && node->getFirstChild()->getOpCode().isBooleanCompare()
+       && !node->getFirstChild()->getOpCode().isBranch()
+       && node->getChild(1)->getOpCode().isInteger()
+       && node->getChild(2)->getOpCode().isInteger())
+      {
+      // handle case of integer ternary of the forms
+      // ternary
+      //    condition
+      //    const 0/1
+      //    const 0/1
+      // where the two consts are NOT equal (0 == 0 or 1 == 1 was handled above
+      if (node->getChild(1)->getOpCode().isLoadConst()
+          && node->getChild(2)->getOpCode().isLoadConst())
+         {
+         if (node->getChild(1)->get64bitIntegralValue() == 0
+             && node->getChild(2)->get64bitIntegralValue() == 1)
+            {
+            return s->replaceNode(node, node->getFirstChild(), s->_curTree);
+            }
+         else if (node->getChild(1)->get64bitIntegralValue() == 1
+             && node->getChild(2)->get64bitIntegralValue() == 0)
+            {
+            TR::Node *replacement = NULL;
+            if (node->getFirstChild()->getReferenceCount() == 1)
+               {
+               TR::Node *replacement = node->getFirstChild();
+               TR::Node::recreate(replacement, replacement->getOpCode().getOpCodeForSwapChildren());
+               return s->replaceNode(node, replacement, s->_curTree);
+               }
+            else
+               {
+               s->anchorChildren(node->getFirstChild(), s->_curTree);
+               TR::Node *replacement = TR::Node::create(node->getFirstChild(), node->getFirstChild()->getOpCode().getOpCodeForSwapChildren(), 2,
+                                node->getFirstChild()->getFirstChild(), node->getFirstChild()->getSecondChild());
+               return s->replaceNode(node, replacement, s->_curTree);
+               }
+            }
+         }
+      else if ((node->getChild(2)->getOpCode().isLoadConst()
+                && isBooleanExpression(node->getChild(1)))
+               || (node->getChild(1)->getOpCode().isLoadConst()
+                   && isBooleanExpression(node->getChild(2))))
+         {
+         TR::Node *replacement = NULL;
+         if (node->getChild(2)->getOpCode().isLoadConst())
+            {
+            TR::Node *cond1 = node->getChild(0);
+            TR::Node *cond2 = node->getChild(1);
+            if (node->getChild(2)->get64bitIntegralValue() == 0)
+               {
+               replacement = TR::Node::create(node, TR::iand, 2,
+                                cond1, cond2);
+               }
+            else
+               {
+               if (cond1->getReferenceCount() > 1)
+                  s->anchorChildren(cond1, s->_curTree);
+               replacement = TR::Node::create(node, TR::ior, 2,
+                                TR::Node::create(cond1, cond1->getOpCode().getOpCodeForSwapChildren(), 2, cond1->getFirstChild(), cond1->getSecondChild()),
+                                cond2);
+               }
+            }
+         else
+            {
+            TR::Node *cond1 = node->getChild(0);
+            TR::Node *cond2 = node->getChild(2);
+            if (node->getChild(1)->get64bitIntegralValue() == 0)
+               {
+               if (cond1->getReferenceCount() > 1)
+                  s->anchorChildren(cond1, s->_curTree);
+               replacement = TR::Node::create(node, TR::iand, 2,
+                                TR::Node::create(cond1, cond1->getOpCode().getOpCodeForSwapChildren(), 2, cond1->getFirstChild(), cond1->getSecondChild()),
+                                cond2);
+               }
+            else
+               {
+               replacement = TR::Node::create(node, TR::ior, 2, cond1, cond2);
+               }
+            }
+         if (node->getReferenceCount() > 1)
+            s->anchorNode(node, s->_curTree);
+         return s->replaceNode(node, replacement, s->_curTree);
+         }
+      else if (node->getChild(1)->getOpCode().isBooleanCompare()
+               && !node->getChild(1)->getOpCode().isBranch()
+               && node->getChild(2)->getOpCode().isBooleanCompare()
+               && !node->getChild(2)->getOpCode().isBranch())
+         {
+         //TODO
+         }
+      }
 
    return node;
    }
