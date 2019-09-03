@@ -1047,9 +1047,9 @@ TR_Debug::print(TR::FILE *pOutFile, TR::X86RegRegRegInstruction  * instr)
    TR_RegisterSizes sourceSize = getSourceSizeFromInstruction(instr);
    if (!(instr->getOpCode().sourceRegIsImplicit() != 0))
       {
-      print(pOutFile, instr->getSource2ndRegister(), sourceSize);
-      trfprintf(pOutFile, ", ");
       print(pOutFile, instr->getSourceRegister(), sourceSize);
+      trfprintf(pOutFile, ", ");
+      print(pOutFile, instr->getSource2ndRegister(), sourceSize);
       }
 
    printInstructionComment(pOutFile, 2, instr);
