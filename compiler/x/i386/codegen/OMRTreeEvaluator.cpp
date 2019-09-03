@@ -3621,22 +3621,22 @@ TR::Register *OMR::X86::I386::TreeEvaluator::lternaryEvaluator(TR::Node *node, T
    bool longCompare = (condition->getOpCode().isBooleanCompare() && condition->getFirstChild()->getOpCode().isLong());
    if (!longCompare && condOp.isCompareForEquality() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
       {
-      compareIntegersForEquality(condition, cg);
+      X86Flags flag = compareIntegersForEquality(condition, cg);
       if(condOp.isCompareTrueIfEqual())
          {
-         generateRegRegInstruction(CMOVNE4RegReg, node,
+         generateRegRegInstruction(flag == ZeroFlag ? CMOVNE4RegReg : CMOVB4RegReg, node,
                                    trueReg-> getRegisterPair()->getLowOrder(),
                                    falseReg->getRegisterPair()->getLowOrder(), cg);
-         generateRegRegInstruction(CMOVNE4RegReg, node,
+         generateRegRegInstruction(flag == ZeroFlag ? CMOVNE4RegReg : CMOVB4RegReg, node,
                                    trueReg-> getRegisterPair()->getHighOrder(),
                                    falseReg->getRegisterPair()->getHighOrder(), cg);
          }
       else
          {
-         generateRegRegInstruction(CMOVE4RegReg, node,
+         generateRegRegInstruction(flag == ZeroFlag ? CMOVE4RegReg : CMOVAE4RegReg, node,
                                    trueReg-> getRegisterPair()->getLowOrder(),
                                    falseReg->getRegisterPair()->getLowOrder(), cg);
-         generateRegRegInstruction(CMOVE4RegReg, node,
+         generateRegRegInstruction(flag == ZeroFlag ? CMOVE4RegReg : CMOVAE4RegReg, node,
                                    trueReg-> getRegisterPair()->getHighOrder(),
                                    falseReg->getRegisterPair()->getHighOrder(), cg);
          }

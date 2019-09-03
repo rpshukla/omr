@@ -395,7 +395,7 @@ class OMR_EXTENSIBLE TreeEvaluator: public OMR::TreeEvaluator
    static void compareGPRegisterToImmediateForEquality(TR::Node *node, TR::Register *cmpRegister, int32_t value, TR::CodeGenerator *cg);
    static void compareGPRegisterToConstantForEquality(TR::Node * node, int32_t value, TR::Register *cmpRegister, TR::CodeGenerator *cg);
    static void setupProfiledGuardRelocation(TR::X86RegImmInstruction *cmpInstruction, TR::Node *node, TR_ExternalRelocationTargetKind reloKind);
-   static void compareIntegersForEquality(TR::Node *node, TR::CodeGenerator *cg);
+   static X86Flags compareIntegersForEquality(TR::Node *node, TR::CodeGenerator *cg);
    static void compareIntegersForOrder(TR::Node *node, TR::CodeGenerator *cg);
    static void compareIntegersForOrder(TR::Node *node, TR::Node *firstChild, TR::Node *secondChild, TR::CodeGenerator *cg);
    static void compareBytesForOrder(TR::Node *node, TR::CodeGenerator *cg);

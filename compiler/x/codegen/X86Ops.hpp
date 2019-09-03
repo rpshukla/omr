@@ -28,6 +28,12 @@
 namespace TR { class CodeGenerator; }
 namespace TR { class Register; }
 
+enum X86Flags
+   {
+   ZeroFlag,
+   CarryFlag
+   };
+
 enum TR_X86OpCodes : uint32_t
    {
 #define INSTRUCTION(name, mnemonic, binary, property0, property1) name
@@ -58,6 +64,7 @@ inline TR_X86OpCodes SizeParameterizedOpCode(bool is64Bit =
 #define BTRegReg       SizeParameterizedOpCode<BT8RegReg       , BT4RegReg       >
 #define CMOVBRegReg    SizeParameterizedOpCode<CMOVB8RegReg    , CMOVB4RegReg    >
 #define CMOVARegMem    SizeParameterizedOpCode<CMOVA8RegMem    , CMOVA4RegMem    >
+#define CMOVAERegReg   SizeParameterizedOpCode<CMOVAE8RegReg   , CMOVAE4RegReg   >
 #define CMOVERegMem    SizeParameterizedOpCode<CMOVE8RegMem    , CMOVE4RegMem    >
 #define CMOVERegReg    SizeParameterizedOpCode<CMOVE8RegReg    , CMOVE4RegReg    >
 #define CMOVNERegMem   SizeParameterizedOpCode<CMOVNE8RegMem   , CMOVNE4RegMem   >

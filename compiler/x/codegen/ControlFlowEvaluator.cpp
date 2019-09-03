@@ -602,7 +602,7 @@ OMR::X86::TreeEvaluator::setupProfiledGuardRelocation(TR::X86RegImmInstruction *
 #endif
    }
 
-void OMR::X86::TreeEvaluator::compareIntegersForEquality(TR::Node *node, TR::CodeGenerator *cg)
+X86Flags OMR::X86::TreeEvaluator::compareIntegersForEquality(TR::Node *node, TR::CodeGenerator *cg)
    {
    TR::Compilation *comp = cg->comp();
    TR::Node  *secondChild = node->getSecondChild();
@@ -668,6 +668,26 @@ void OMR::X86::TreeEvaluator::compareIntegersForEquality(TR::Node *node, TR::Cod
                bool conversionSkipped = false;
                TR::Node *andFirstChild  = firstChild->getFirstChild();
                TR::Node *andSecondChild = firstChild->getSecondChild();
+
+               static char *disableBT = feGetEnv("TR_disableBT");
+               if (!disableBT && andFirstChild->getOpCode().isLeftShift()
+                   && andFirstChild->getRegister() == NULL
+                   && ((TR::Compiler->target.is64Bit() && andFirstChild->getOpCode().isLong()) || andFirstChild->getOpCode().isInt())
+                   && andFirstChild->getReferenceCount() == 1
+                   && andFirstChild->getFirstChild()->getOpCode().isLoadConst()
+                   && andFirstChild->getFirstChild()->getConstValue() == 1)
+                  {
+                  TR::Register *index = cg->evaluate(andFirstChild->getSecondChild());
+                  TR::Register *value = TR::TreeEvaluator::intOrLongClobberEvaluate(andSecondChild, TR::TreeEvaluator::getNodeIs64Bit(andSecondChild, cg), cg);
+                  
+                  generateRegRegInstruction(andFirstChild->getOpCode().isLong() ? BT8RegReg : BT4RegReg, node, value, index, cg);
+                  
+                  andFirstChild->getFirstChild()->decReferenceCount();
+                  andFirstChild->decReferenceCount();
+                  secondChild->decReferenceCount();
+                  firstChild->decReferenceCount();
+                  return CarryFlag;
+                  }
 
                //This code path cheats a bit and uses a 4-byte instruction to compare a 2-byte
                //value with zero.  Ordinarily, this wouldn't work because the top 2 bytes of
@@ -1014,6 +1034,7 @@ void OMR::X86::TreeEvaluator::compareIntegersForEquality(TR::Node *node, TR::Cod
             }
          }
       }
+   return ZeroFlag;
    }
 
 
@@ -1310,12 +1331,12 @@ TR::Register *OMR::X86::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::Cod
    //if ((conditionOp == TR::icmpeq) || (conditionOp == TR::icmpne) || (conditionOp == TR::lcmpeq) || (conditionOp == TR::lcmpne))
    if (!longCompareOn32bit && conditionOp.isCompareForEquality() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
       {
-      TR::TreeEvaluator::compareIntegersForEquality(condition, cg);
+      X86Flags flag = TR::TreeEvaluator::compareIntegersForEquality(condition, cg);
       //if ((conditionOp == TR::icmpeq) || (conditionOp == TR::lcmpeq))
       if (conditionOp.isCompareTrueIfEqual())
-         generateRegRegInstruction(CMOVNERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
+         generateRegRegInstruction(flag == ZeroFlag ? CMOVNERegReg(trueValIs64Bit) : CMOVBRegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
       else
-         generateRegRegInstruction(CMOVERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
+         generateRegRegInstruction(flag == ZeroFlag ? CMOVERegReg(trueValIs64Bit) : CMOVAERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
       }
    else if (!longCompareOn32bit && conditionOp.isCompareForOrder() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
       {
@@ -1381,9 +1402,9 @@ TR::Register *OMR::X86::TreeEvaluator::integerIfCmpeqEvaluator(TR::Node *node, T
       cg->evaluate(firstChild);
       }
 
-   TR::TreeEvaluator::compareIntegersForEquality(node, cg);
+   X86Flags flag = TR::TreeEvaluator::compareIntegersForEquality(node, cg);
 
-   generateConditionalJumpInstruction(JE4, node, cg, true);
+   generateConditionalJumpInstruction(flag == ZeroFlag ? JE4 : JAE4, node, cg, true);
    return NULL;
    }
 
@@ -1485,7 +1506,7 @@ TR::Register *OMR::X86::TreeEvaluator::integerIfCmpneEvaluator(TR::Node *node, T
          return NULL;
          }
 
-      TR::TreeEvaluator::compareIntegersForEquality(node, cg);
+      X86Flags flag = TR::TreeEvaluator::compareIntegersForEquality(node, cg);
 
       // If this is a guard that has not been NOPed, then
       // it might need to be registered in our internal data structures
@@ -1505,7 +1526,7 @@ TR::Register *OMR::X86::TreeEvaluator::integerIfCmpneEvaluator(TR::Node *node, T
       //            }
       //         }
 
-      TR::X86LabelInstruction *instr = generateConditionalJumpInstruction(JNE4, node, cg, true);
+      TR::X86LabelInstruction *instr = generateConditionalJumpInstruction(flag == ZeroFlag ? JNE4 : JB4, node, cg, true);
       generateMergedGuardCodeIfNeeded(node, cg, instr);
 
       return NULL;
@@ -1917,9 +1938,13 @@ TR::Register *OMR::X86::TreeEvaluator::ifscmpleEvaluator(TR::Node *node, TR::Cod
 
 TR::Register *OMR::X86::TreeEvaluator::ifsucmpeqEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    {
-   TR::TreeEvaluator::compareIntegersForEquality(node, cg);
-   generateConditionalJumpInstruction(node->getOpCodeValue() == TR::ifsucmpeq ? JE4 : JNE4,
-                                      node, cg, true);
+   X86Flags flag = TR::TreeEvaluator::compareIntegersForEquality(node, cg);
+   if (node->getOpCodeValue() == TR::ifsucmpeq)
+      generateConditionalJumpInstruction(flag == ZeroFlag? JE4 : JAE4,
+                                         node, cg, true);
+   else
+      generateConditionalJumpInstruction(flag == ZeroFlag ? JNE4 : JB4,
+                                         node, cg, true);
    return NULL;
    }
 
@@ -1953,7 +1978,9 @@ TR::Register *OMR::X86::TreeEvaluator::ifsucmpleEvaluator(TR::Node *node, TR::Co
 
 TR::Register *OMR::X86::TreeEvaluator::integerEqualityHelper(TR::Node *node, TR_X86OpCodes setOp, TR::CodeGenerator *cg)
    {
-   TR::TreeEvaluator::compareIntegersForEquality(node, cg);
+   X86Flags flag = TR::TreeEvaluator::compareIntegersForEquality(node, cg);
+   if (flag == CarryFlag)
+      setOp = setOp == SETE1Reg ? SETAE1Reg : SETB1Reg;
    TR::Register *targetRegister = cg->allocateRegister();
    generateRegInstruction(setOp, node, targetRegister, cg);
 
