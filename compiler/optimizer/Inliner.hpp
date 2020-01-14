@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corp. and others
+ * Copyright (c) 2000, 2020 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -129,7 +129,6 @@ class TR_InlinerTracer : public TR_LogTracer
       void dumpCallTarget (TR_CallTarget *, const char *fmt, ...);
       void dumpInline (TR_LinkHead<TR_CallTarget> *targets, const char *fmt, ...);
       void dumpPartialInline (TR_InlineBlocks *partialInline);
-      void dumpPrexArgInfo(TR_PrexArgInfo* argInfo);
 
       void dumpDeadCalls(TR_LinkHead<TR_CallSite> *sites);
 
