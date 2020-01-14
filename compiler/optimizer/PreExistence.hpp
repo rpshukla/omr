@@ -140,6 +140,8 @@ class TR_PrexArgInfo
 
    int32_t getNumArgs() { return _numArgs; }
 
+   void dumpTrace();
+
    private:
 
    int32_t _numArgs;

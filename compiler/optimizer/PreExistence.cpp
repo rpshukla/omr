@@ -64,3 +64,23 @@ TR_PrexArgument::TR_PrexArgument(
       }
 #endif
    }
+
+void TR_PrexArgInfo::dumpTrace() {
+   traceMsg(TR::comp(),  "<argInfo address = %p numArgs = %d>\n", this, getNumArgs());
+   for (int i = 0 ; i < getNumArgs(); i++)
+
+      {
+      TR_PrexArgument* arg = get(i);
+      if (arg && arg->getClass())
+         {
+         char* className = TR::Compiler->cls.classSignature(TR::comp(), arg->getClass(), TR::comp()->trMemory());
+         traceMsg(TR::comp(),  "<Argument no=%d address=%p classIsFixed=%d classIsPreexistent=%d argIsKnownObject=%d koi=%d class=%p className= %s/>\n",
+         i, arg, arg->classIsFixed(), arg->classIsPreexistent(), arg->hasKnownObjectIndex(), arg->getKnownObjectIndex(), arg->getClass(), className);
+         }
+      else
+         {
+         traceMsg(TR::comp(),  "<Argument no=%d address=%p classIsFixed=%d classIsPreexistent=%d/>\n", i, arg, arg ? arg->classIsFixed() : 0, arg ? arg->classIsPreexistent() : 0);
+         }
+      }
+   traceMsg(TR::comp(),  "</argInfo>\n");
+}
