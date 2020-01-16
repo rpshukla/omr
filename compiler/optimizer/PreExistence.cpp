@@ -68,7 +68,6 @@ TR_PrexArgument::TR_PrexArgument(
 void TR_PrexArgInfo::dumpTrace() {
    traceMsg(TR::comp(),  "<argInfo address = %p numArgs = %d>\n", this, getNumArgs());
    for (int i = 0 ; i < getNumArgs(); i++)
-
       {
       TR_PrexArgument* arg = get(i);
       if (arg && arg->getClass())
