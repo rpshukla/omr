@@ -26,9 +26,9 @@
 #include <string.h>
 #include "env/KnownObjectTable.hpp"
 #include "env/TRMemory.hpp"
+#include "ras/LogTracer.hpp"
 
 class TR_CallSite;
-class TR_InlinerTracer;
 class TR_OpaqueClassBlock;
 class TR_VirtualGuard;
 namespace TR { class Compilation; }
@@ -109,15 +109,15 @@ class TR_PrexArgInfo
    static TR_PrexArgInfo* enhance(TR_PrexArgInfo *dest, TR_PrexArgInfo *source, TR::Compilation *comp);
 
    static void propagateReceiverInfoIfAvailable (TR::ResolvedMethodSymbol* methodSymbol, TR_CallSite* callsite,
-                                              TR_PrexArgInfo * argInfo, TR_InlinerTracer *tracer);
+                                              TR_PrexArgInfo * argInfo, TR_LogTracer *tracer);
 
    static void propagateArgsFromCaller(TR::ResolvedMethodSymbol* methodSymbol, TR_CallSite* callsite,
-      TR_PrexArgInfo * argInfo, TR_InlinerTracer *tracer);
+      TR_PrexArgInfo * argInfo, TR_LogTracer *tracer);
 
-   static bool validateAndPropagateArgsFromCalleeSymbol(TR_PrexArgInfo* argsFromSymbol, TR_PrexArgInfo* argsFromTarget, TR_InlinerTracer *tracer);
+   static bool validateAndPropagateArgsFromCalleeSymbol(TR_PrexArgInfo* argsFromSymbol, TR_PrexArgInfo* argsFromTarget, TR_LogTracer *tracer);
 
-   static TR_PrexArgInfo* buildPrexArgInfoForMethodSymbol(TR::ResolvedMethodSymbol* methodSymbol, TR_InlinerTracer* tracer);
-   void clearArgInfoForNonInvariantArguments(TR::ResolvedMethodSymbol* methodSymbol, TR_InlinerTracer* tracer);
+   static TR_PrexArgInfo* buildPrexArgInfoForMethodSymbol(TR::ResolvedMethodSymbol* methodSymbol, TR_LogTracer* tracer);
+   void clearArgInfoForNonInvariantArguments(TR::ResolvedMethodSymbol* methodSymbol, TR_LogTracer* tracer);
    /**
     * \brief
     *    Get arg info for arguments of callNode that are parameters of the caller
@@ -148,7 +148,7 @@ class TR_PrexArgInfo
    TR_PrexArgument **_args;
    //
 #ifdef J9_PROJECT_SPECIFIC
-   static TR::Node* getCallNode (TR::ResolvedMethodSymbol* methodSymbol, class TR_CallSite* callsite, class TR_InlinerTracer* tracer);
+   static TR::Node* getCallNode (TR::ResolvedMethodSymbol* methodSymbol, class TR_CallSite* callsite, class TR_LogTracer* tracer);
    static bool hasArgInfoForChild (TR::Node *child, TR_PrexArgInfo * argInfo);
    static TR_PrexArgument* getArgForChild(TR::Node *child, TR_PrexArgInfo* argInfo);
 #endif
