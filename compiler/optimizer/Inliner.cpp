@@ -3862,8 +3862,6 @@ TR_IndirectCallSite::addTargetIfThereIsSingleImplementer (TR_InlinerBase* inline
 
 bool TR_IndirectCallSite::findCallSiteTarget (TR_CallStack *callStack, TR_InlinerBase* inliner)
    {
-   //inliner->tracer()->dumpPrexArgInfo(_ecsPrexArgInfo);
-
    if (addTargetIfMethodIsNotOverriden(inliner) ||
        addTargetIfMethodIsNotOverridenInReceiversHierarchy(inliner) ||
        addTargetIfThereIsSingleImplementer(inliner) ||
