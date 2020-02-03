@@ -670,7 +670,7 @@ X86Flags OMR::X86::TreeEvaluator::compareIntegersForEquality(TR::Node *node, TR:
                TR::Node *andSecondChild = firstChild->getSecondChild();
 
                static char *disableBT = feGetEnv("TR_disableBT");
-               if (!disableBT && andFirstChild->getOpCode().isLeftShift()
+               if (false && !disableBT && andFirstChild->getOpCode().isLeftShift()
                    && andFirstChild->getRegister() == NULL
                    && ((TR::Compiler->target.is64Bit() && andFirstChild->getOpCode().isLong()) || andFirstChild->getOpCode().isInt())
                    && andFirstChild->getReferenceCount() == 1
