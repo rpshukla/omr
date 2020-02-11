@@ -2042,6 +2042,7 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
       TR::Node *right = node->getChild(2);
       if (left->getOpCode().isLoadConst())
          {
+         traceMsg(TR::comp(), "fold left subtree of node %x\n", node);
          node->setAndIncChild(1, evaluateIntComparison(compareType, isUnsignedCompare, left->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(left, left->getDataType()) : TR::Node::createConstZeroValue(left, left->getDataType()));
          left->decReferenceCount();
          }
@@ -2051,6 +2052,7 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
          }
       if (right->getOpCode().isLoadConst())
          {
+         traceMsg(TR::comp(), "fold right subtree of node %x\n", node);
          node->setAndIncChild(2, evaluateIntComparison(compareType, isUnsignedCompare, right->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(right, right->getDataType()) : TR::Node::createConstZeroValue(right, right->getDataType()));
          right->decReferenceCount();
          }
@@ -2083,11 +2085,13 @@ static void simplifyITernaryCompare(TR::Node *compare, TR::Simplifier *s)
        && compare->getFirstChild()->getOpCode().isTernary()
        && compare->getFirstChild()->getReferenceCount() == 1)
       {
+      traceMsg(s->comp(), "simplifyITernaryCompare: passed first check\n");
       TR::NodeChecklist safetyVisited(s->comp());
       TR_ComparisonTypes compareType = TR::ILOpCode::getCompareType(compare->getOpCodeValue());
       bool isUnsignedCompare = TR::ILOpCode(compare->getOpCode()).isUnsignedCompare();
       if (canProcessSubTreeLeavesForITernaryCompare(safetyVisited, compare->getFirstChild()))
          {
+         traceMsg(s->comp(), "simplifyITernaryCompare: passed second check\n");
          TR::NodeChecklist visited(s->comp());
          processSubTreeLeavesForITernaryCompare(visited, compare->getFirstChild(), compareType, isUnsignedCompare, compare->getSecondChild()->get64bitIntegralValue());
          TR::Node *constVal = compare->getSecondChild();
@@ -13184,7 +13188,12 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
 
 TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   traceMsg(s->comp(), "ificmpeqSimplifier: about to call simplifyITernaryCompare on node %x\n", node);
+   simplifyITernaryCompare(node, s);
+   traceMsg(s->comp(), "ificmpeqSimplifier: called simplifyITernaryCompare on node %x\n", node);
+   traceMsg(s->comp(), "ificmpeqSimplifier: about to call simplifyChildren on node %x\n", node);
    simplifyChildren(node, block, s);
+   traceMsg(s->comp(), "ificmpeqSimplifier: called simplifyChildren on node %x\n", node);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
 
@@ -13292,7 +13301,7 @@ TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    addressCompareConversion(node, s);
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
+   //simplifyITernaryCompare(node, s);
    if (s->getLastRun())
       convertToTestUnderMask(node, block, s);
 
@@ -15644,7 +15653,9 @@ static bool isBooleanExpression(TR::Node *node)
 
 TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   traceMsg(s->comp(), "ternarysimplifier: start %x\n", node);
    simplifyChildren(node, block, s);
+   traceMsg(s->comp(), "ternarysimplifier: after simplifyChildren %x\n", node);
 
    if (node->getFirstChild()->getOpCode().isLoadConst())
       {
@@ -15652,15 +15663,18 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
       TR::Node * newNode = value ? node->getChild(1) : node->getChild(2);
       return s->replaceNode(node, newNode, s->_curTree);
       }
+   traceMsg(s->comp(), "ternarysimplifier: after const condition %x\n", node);
 
    if (node->getChild(1) == node->getChild(2))
       return s->replaceNode(node, node->getChild(1), s->_curTree);
+   traceMsg(s->comp(), "ternarysimplifier: after children equal %x\n", node);
 
    // sometimes the children are different but represent the same value
    if (node->getChild(1)->getOpCode().isLoadConst() && node->getChild(2)->getOpCode().isLoadConst())
       if (node->getChild(1)->getOpCode().isInteger() && node->getChild(2)->getOpCode().isInteger())
          if (node->getChild(1)->get64bitIntegralValue() == node->getChild(2)->get64bitIntegralValue())
             return s->replaceNode(node, node->getChild(1), s->_curTree);
+   traceMsg(s->comp(), "ternarysimplifier: after children equal (2) %x\n", node);
 
    if (node->getOpCode().isInteger()
        && node->getFirstChild()->getOpCode().isBooleanCompare()
@@ -15668,6 +15682,7 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
        && node->getChild(1)->getOpCode().isInteger()
        && node->getChild(2)->getOpCode().isInteger())
       {
+      traceMsg(s->comp(), "ternarysimplifier: after outer if %x\n", node);
       // handle case of integer ternary of the forms
       // ternary
       //    condition
@@ -15677,14 +15692,17 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
       if (node->getChild(1)->getOpCode().isLoadConst()
           && node->getChild(2)->getOpCode().isLoadConst())
          {
+         traceMsg(s->comp(), "ternarysimplifier: 2 consts, node: %x\n", node);
          if (node->getChild(1)->get64bitIntegralValue() == 1
              && node->getChild(2)->get64bitIntegralValue() == 0)
             {
+            traceMsg(s->comp(), "ternarysimplifier: 1 0\n");
             return s->replaceNode(node, node->getFirstChild(), s->_curTree);
             }
          else if (node->getChild(1)->get64bitIntegralValue() == 0
              && node->getChild(2)->get64bitIntegralValue() == 1)
             {
+            traceMsg(s->comp(), "ternarysimplifier: 0 1\n");
             TR::Node *replacement = NULL;
             if (node->getFirstChild()->getReferenceCount() == 1)
                {
@@ -15706,6 +15724,7 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
                || (node->getChild(1)->getOpCode().isLoadConst()
                    && isBooleanExpression(node->getChild(2))))
          {
+         traceMsg(s->comp(), "ternarysimplifier: 1 const, 1 boolean expression, node: %x\n", node);
          TR::Node *replacement = NULL;
          if (node->getChild(2)->getOpCode().isLoadConst())
             {
@@ -15751,6 +15770,7 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
                && node->getChild(2)->getOpCode().isBooleanCompare()
                && !node->getChild(2)->getOpCode().isBranch())
          {
+         traceMsg(s->comp(), "ternarysimplifier: todo case, node: %x\n", node);
          //TODO
          }
       }
