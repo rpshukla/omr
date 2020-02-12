@@ -13184,6 +13184,11 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
 
 TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13292,7 +13297,6 @@ TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    addressCompareConversion(node, s);
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    if (s->getLastRun())
       convertToTestUnderMask(node, block, s);
 
@@ -13306,6 +13310,11 @@ TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13398,7 +13407,6 @@ TR::Node *ificmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    addressCompareConversion(node, s);
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
 
    return node;
    }
@@ -13409,6 +13417,11 @@ TR::Node *ificmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13444,7 +13457,6 @@ TR::Node *ificmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13454,6 +13466,11 @@ TR::Node *ificmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13489,7 +13506,6 @@ TR::Node *ificmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    removeArithmeticsUnderIntegralCompare(node, s);
 
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13499,6 +13515,11 @@ TR::Node *ificmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13534,7 +13555,6 @@ TR::Node *ificmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    removeArithmeticsUnderIntegralCompare(node, s);
 
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13544,6 +13564,11 @@ TR::Node *ificmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13582,7 +13607,6 @@ TR::Node *ificmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    if (node->getFirstChild()->getOpCode().isBooleanCompare()
        && node->getSecondChild()->getOpCode().isLoadConst())
       {
@@ -13619,6 +13643,11 @@ TR::Node *ificmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13649,7 +13678,6 @@ TR::Node *iflcmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13659,6 +13687,11 @@ TR::Node *iflcmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13689,7 +13722,6 @@ TR::Node *iflcmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    removeArithmeticsUnderIntegralCompare(node, s);
 
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13699,6 +13731,11 @@ TR::Node *iflcmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13727,7 +13764,6 @@ TR::Node *iflcmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
       }
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13737,6 +13773,11 @@ TR::Node *iflcmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13765,7 +13806,6 @@ TR::Node *iflcmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
       }
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13775,6 +13815,11 @@ TR::Node *iflcmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13803,7 +13848,6 @@ TR::Node *iflcmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
       }
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -13813,6 +13857,11 @@ TR::Node *iflcmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -13847,7 +13896,6 @@ TR::Node *iflcmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   simplifyITernaryCompare(node, s);
    return node;
    }
 
@@ -14075,6 +14123,11 @@ TR::Node *normalizeCmpSimplifier(TR::Node * node, TR::Block * block, TR::Simplif
 
 TR::Node *ifacmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
    simplifyChildren(node, block, s);
@@ -14099,7 +14152,6 @@ TR::Node *ifacmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    partialRedundantCompareElimination(node, block, s);
 
    ifjlClassSimplifier(node, s);
-   simplifyITernaryCompare(node, s);
 
    return node;
    }
@@ -14109,6 +14161,11 @@ TR::Node *ifacmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 //
 TR::Node *ifacmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
+   // Perform a simplification for the case where an iternary is conpared to a
+   // constant. This is done before simplifyChildren because it may allow
+   // further transformations to be done on the children.
+   simplifyITernaryCompare(node, s);
+
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
    simplifyChildren(node, block, s);
@@ -14133,7 +14190,6 @@ TR::Node *ifacmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
    partialRedundantCompareElimination(node, block, s);
 
    ifjlClassSimplifier(node, s);
-   simplifyITernaryCompare(node, s);
 
    return node;
    }
