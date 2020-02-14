@@ -2026,7 +2026,7 @@ static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited
    return false;
    }
 
-static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node, TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t constant)
+static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node, TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t constant, TR::Simplifier *s)
    {
    bool toReturn = true;
    if (visited.contains(node))
@@ -2042,26 +2042,32 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
       TR::Node *right = node->getChild(2);
       if (left->getOpCode().isLoadConst())
          {
-         node->setAndIncChild(1, evaluateIntComparison(compareType, isUnsignedCompare, left->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(left, left->getDataType()) : TR::Node::createConstZeroValue(left, left->getDataType()));
-         left->decReferenceCount();
+         if (performTransformation(s->comp(), "%sReplacing constant child of iternary node [" POINTER_PRINTF_FORMAT "] with 0 or 1\n", s->optDetailString(), node))
+            {
+            node->setAndIncChild(1, evaluateIntComparison(compareType, isUnsignedCompare, left->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(left, left->getDataType()) : TR::Node::createConstZeroValue(left, left->getDataType()));
+            left->decReferenceCount();
+            }
          }
       else
          {
-         toReturn |= processSubTreeLeavesForITernaryCompare(visited, left, compareType, isUnsignedCompare, constant);
+         toReturn |= processSubTreeLeavesForITernaryCompare(visited, left, compareType, isUnsignedCompare, constant, s);
          }
       if (right->getOpCode().isLoadConst())
          {
-         node->setAndIncChild(2, evaluateIntComparison(compareType, isUnsignedCompare, right->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(right, right->getDataType()) : TR::Node::createConstZeroValue(right, right->getDataType()));
-         right->decReferenceCount();
+         if (performTransformation(s->comp(), "%sReplacing constant child of iternary node [" POINTER_PRINTF_FORMAT "] with 0 or 1\n", s->optDetailString(), node))
+            {
+            node->setAndIncChild(2, evaluateIntComparison(compareType, isUnsignedCompare, right->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(right, right->getDataType()) : TR::Node::createConstZeroValue(right, right->getDataType()));
+            right->decReferenceCount();
+            }
          }
       else
          {
-         toReturn |= processSubTreeLeavesForITernaryCompare(visited, right, compareType, isUnsignedCompare, constant);
+         toReturn |= processSubTreeLeavesForITernaryCompare(visited, right, compareType, isUnsignedCompare, constant, s);
          }
       }
    else if (node->getOpCodeValue() == TR::PassThrough)
       {
-      toReturn = processSubTreeLeavesForITernaryCompare(visited, node->getFirstChild(), compareType, isUnsignedCompare, constant);
+      toReturn = processSubTreeLeavesForITernaryCompare(visited, node->getFirstChild(), compareType, isUnsignedCompare, constant, s);
       }
    else
       {
@@ -2089,11 +2095,14 @@ static void simplifyITernaryCompare(TR::Node *compare, TR::Simplifier *s)
       if (canProcessSubTreeLeavesForITernaryCompare(safetyVisited, compare->getFirstChild()))
          {
          TR::NodeChecklist visited(s->comp());
-         processSubTreeLeavesForITernaryCompare(visited, compare->getFirstChild(), compareType, isUnsignedCompare, compare->getSecondChild()->get64bitIntegralValue());
+         processSubTreeLeavesForITernaryCompare(visited, compare->getFirstChild(), compareType, isUnsignedCompare, compare->getSecondChild()->get64bitIntegralValue(), s);
          TR::Node *constVal = compare->getSecondChild();
-         compare->setAndIncChild(1, TR::Node::createConstZeroValue(compare->getSecondChild(), compare->getSecondChild()->getDataType()));
-         constVal->decReferenceCount();
-         TR::Node::recreate(compare, TR::ILOpCode(TR::ILOpCode::compareOpCode(compare->getFirstChild()->getDataType(), TR_cmpNE, isUnsignedCompare)).convertCmpToIfCmp());
+         if (performTransformation(s->comp(), "%sReplacing constant child of compare node [" POINTER_PRINTF_FORMAT "] with 0 after comparison of constants has been folded across children\n", s->optDetailString(), compare))
+            {
+            compare->setAndIncChild(1, TR::Node::createConstZeroValue(compare->getSecondChild(), compare->getSecondChild()->getDataType()));
+            constVal->decReferenceCount();
+            TR::Node::recreate(compare, TR::ILOpCode(TR::ILOpCode::compareOpCode(compare->getFirstChild()->getDataType(), TR_cmpNE, isUnsignedCompare)).convertCmpToIfCmp());
+            }
          }
       }
    }
