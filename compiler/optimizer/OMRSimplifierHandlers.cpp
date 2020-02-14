@@ -15738,14 +15738,15 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
       //    condition
       //    const 0/1
       //    const 0/1
-      // where the two consts are NOT equal (0 == 0 or 1 == 1 was handled above
+      // where the two consts are NOT equal (0 == 0 or 1 == 1) was handled above
       if (node->getChild(1)->getOpCode().isLoadConst()
           && node->getChild(2)->getOpCode().isLoadConst())
          {
          if (node->getChild(1)->get64bitIntegralValue() == 1
              && node->getChild(2)->get64bitIntegralValue() == 0)
             {
-            return s->replaceNode(node, node->getFirstChild(), s->_curTree);
+            if (performTransformation(s->comp(), "%sReplacing trivial ternary node [" POINTER_PRINTF_FORMAT "] with condition node [" POINTER_PRINTF_FORMAT "]\n", s->optDetailString(), node, node->getFirstChild()))
+               return s->replaceNode(node, node->getFirstChild(), s->_curTree);
             }
          else if (node->getChild(1)->get64bitIntegralValue() == 0
              && node->getChild(2)->get64bitIntegralValue() == 1)
@@ -15753,16 +15754,22 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
             TR::Node *replacement = NULL;
             if (node->getFirstChild()->getReferenceCount() == 1)
                {
-               TR::Node *replacement = node->getFirstChild();
-               TR::Node::recreate(replacement, replacement->getOpCode().getOpCodeForReverseBranch());
-               return s->replaceNode(node, replacement, s->_curTree);
+               if (performTransformation(s->comp(), "%sReversing ternary [" POINTER_PRINTF_FORMAT "] with children of constant values 0 and 1\n", s->optDetailString(), node))
+                  {
+                  TR::Node *replacement = node->getFirstChild();
+                  TR::Node::recreate(replacement, replacement->getOpCode().getOpCodeForReverseBranch());
+                  return s->replaceNode(node, replacement, s->_curTree);
+                  }
                }
             else
                {
-               s->anchorChildren(node->getFirstChild(), s->_curTree);
-               TR::Node *replacement = TR::Node::create(node->getFirstChild(), node->getFirstChild()->getOpCode().getOpCodeForReverseBranch(), 2,
-                                node->getFirstChild()->getFirstChild(), node->getFirstChild()->getSecondChild());
-               return s->replaceNode(node, replacement, s->_curTree);
+               if (performTransformation(s->comp(), "%sReversing ternary [" POINTER_PRINTF_FORMAT "] with children of constant values 0 and 1\n", s->optDetailString(), node))
+                  {
+                  s->anchorChildren(node->getFirstChild(), s->_curTree);
+                  TR::Node *replacement = TR::Node::create(node->getFirstChild(), node->getFirstChild()->getOpCode().getOpCodeForReverseBranch(), 2,
+                                   node->getFirstChild()->getFirstChild(), node->getFirstChild()->getSecondChild());
+                  return s->replaceNode(node, replacement, s->_curTree);
+                  }
                }
             }
          }
@@ -15807,9 +15814,12 @@ TR::Node *ternarySimplifier(TR::Node * node, TR::Block * block, TR::Simplifier *
                replacement = TR::Node::create(node, TR::ior, 2, cond1, cond2);
                }
             }
-         if (node->getReferenceCount() > 1)
-            s->anchorNode(node, s->_curTree);
-         return s->replaceNode(node, replacement, s->_curTree);
+         if (performTransformation(s->comp(), "%sReplacing ternary tree [" POINTER_PRINTF_FORMAT "] of constant leaves with equivalent boolean compare tree [" POINTER_PRINTF_FORMAT "]\n", s->optDetailString(), node, replacement))
+            {
+            if (node->getReferenceCount() > 1)
+               s->anchorNode(node, s->_curTree);
+            return s->replaceNode(node, replacement, s->_curTree);
+            }
          }
       else if (node->getChild(1)->getOpCode().isBooleanCompare()
                && !node->getChild(1)->getOpCode().isBranch()
