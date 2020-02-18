@@ -4698,6 +4698,7 @@ static bool shouldSkipInliningRecognizedMethod(TR_CallTarget *calltarget)
    TR::Node *callNode = calltarget->_myCallSite->_callNode;
    switch (calleeSymbol->getRecognizedMethod())
       {
+      case TR::java_lang_String_indexOf_char:
       case TR::java_lang_String_indexOf_native:
       case TR::com_ibm_jit_JITHelpers_intrinsicIndexOfLatin1:
       case TR::com_ibm_jit_JITHelpers_intrinsicIndexOfUTF16:
