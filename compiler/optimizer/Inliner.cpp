@@ -4678,6 +4678,56 @@ bool OMR_InlinerPolicy::tryToInlineTrivialMethod (TR_CallStack* callStack, TR_Ca
    return false;
    }
 
+#ifdef J9_PROJECT_SPECIFIC
+/**
+ * \brief
+ *    Check if the callee to be inlined is a recognized method that should not
+ *    be inlined.
+ *
+ * \details
+ *    For example, we should skip inlining indexOf methods for a known string
+ *    receiver so that other optimizations can be performed.
+ *
+ * \param calltarget
+ *    The calltarget of the callee to be checked.
+ *
+ * \param tracer
+ *    The tracer to use.
+ *
+ * \return
+ *    True if the calltarget should NOT be inlined.
+ */
+static bool shouldSkipInliningRecognizedMethod(TR_CallTarget *calltarget, TR_LogTracer *tracer)
+   {
+   TR::ResolvedMethodSymbol *calleeSymbol = calltarget->_calleeSymbol;
+   TR::Node *callNode = calltarget->_myCallSite->_callNode;
+   switch (calleeSymbol->getRecognizedMethod())
+      {
+      case TR::java_lang_String_hashCode:
+      case TR::java_lang_String_hashCodeImplCompressed:
+      case TR::java_lang_String_hashCodeImplDecompressed:
+         {
+         int32_t firstArgIndex = callNode->getFirstArgumentIndex();
+         TR_PrexArgInfo *ecsArgInfo = calltarget->_ecsPrexArgInfo;
+         if (ecsArgInfo && firstArgIndex < ecsArgInfo->getNumArgs())
+            {
+            TR_PrexArgument *stringArg = ecsArgInfo->get(firstArgIndex);
+            PrexKnowledgeLevel priorKnowledge = TR_PrexArgument::knowledgeLevel(stringArg);
+            if (priorKnowledge == KNOWN_OBJECT)
+               {
+               debugTrace(tracer, "Skip inlining String.hashCode recognized method with KNOWN_OBJECT receiver: call target %p, call node %p\n", calltarget, callNode);
+               return true;
+               }
+            }
+         break;
+         }
+      default:
+         return false;
+      }
+      return false;
+   }
+#endif
+
 //returns false when inlining fails
 //TODO: currently this method returns true in some cases when the inlining fails. This needs to be fixed
 bool TR_InlinerBase::inlineCallTarget2(TR_CallStack * callStack, TR_CallTarget *calltarget, TR::TreeTop** cursorTreeTop, bool inlinefromgraph, int32_t)
@@ -4690,6 +4740,11 @@ bool TR_InlinerBase::inlineCallTarget2(TR_CallStack * callStack, TR_CallTarget *
    TR::Node * parent = calltarget->_myCallSite->_parent;
    TR::Node * callNode = calltarget->_myCallSite->_callNode;
    TR_VirtualGuardSelection *guard = calltarget->_guard;
+
+#ifdef J9_PROJECT_SPECIFIC
+   if (shouldSkipInliningRecognizedMethod(calltarget, tracer()))
+      return false;
+#endif
 
    calltarget->_myCallSite->_visitCount++;
 
