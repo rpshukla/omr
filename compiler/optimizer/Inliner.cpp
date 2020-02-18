@@ -4691,6 +4691,21 @@ bool TR_InlinerBase::inlineCallTarget2(TR_CallStack * callStack, TR_CallTarget *
    TR::Node * callNode = calltarget->_myCallSite->_callNode;
    TR_VirtualGuardSelection *guard = calltarget->_guard;
 
+   if (calleeSymbol->getRecognizedMethod() == TR::java_lang_String_indexOf_native)
+      {
+      int32_t firstArgIndex = callNode->getFirstArgumentIndex();
+      TR_PrexArgInfo *ecsArgInfo = calltarget->_ecsPrexArgInfo;
+      if (ecsArgInfo && firstArgIndex < ecsArgInfo->getNumArgs())
+         {
+         TR_PrexArgument *stringArg = ecsArgInfo->get(firstArgIndex);
+         PrexKnowledgeLevel priorKnowledge = TR_PrexArgument::knowledgeLevel(stringArg);
+         if (priorKnowledge == KNOWN_OBJECT)
+            {
+            return false;
+            }
+         }
+      }
+
    calltarget->_myCallSite->_visitCount++;
 
    TR::ResolvedMethodSymbol * callerSymbol = callStack->_methodSymbol;
