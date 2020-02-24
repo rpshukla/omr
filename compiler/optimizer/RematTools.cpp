@@ -135,6 +135,9 @@ static bool isCallSafeToRemat(TR::Node *node)
 
    switch (symbol->getRecognizedMethod())
       {
+      case TR::java_lang_String_indexOf_char:
+      case TR::java_lang_String_indexOf_native:
+      case TR::com_ibm_jit_JITHelpers_intrinsicIndexOfLatin1:
       case TR::com_ibm_jit_JITHelpers_intrinsicIndexOfUTF16:
          return true;
       }
