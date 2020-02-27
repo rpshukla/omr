@@ -1996,6 +1996,8 @@ static bool evaluateIntComparison(TR_ComparisonTypes compareType, bool isUnsigne
       case TR_cmpGE:
          return isUnsignedCompare ? (uint64_t)left >= (uint64_t)right : left >= right;
          break;
+      default:
+         TR_ASSERT(false, "unhandled TR_ComparisonTypes enum value in simplifier");
       }
    }
 
