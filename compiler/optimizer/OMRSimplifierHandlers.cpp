@@ -15722,11 +15722,11 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
        && node->getChild(2)->getOpCode().isInteger())
       {
       // handle case of integer ternary of the forms
-      // ternary
-      //    condition
-      //    const 0/1
-      //    const 0/1
-      // where the two consts are NOT equal (0 == 0 or 1 == 1) was handled above
+      //    ternary
+      //       condition
+      //       const 0/1
+      //       const 0/1
+      // where the two consts are NOT equal (0 == 0 or 1 == 1 was handled above)
       if (node->getChild(1)->getOpCode().isLoadConst()
           && node->getChild(2)->getOpCode().isLoadConst())
          {
@@ -15761,6 +15761,16 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
                }
             }
          }
+      // handle case of integer ternary of the form:
+      //    ternary
+      //       condition
+      //       boolean expression
+      //       const 0/1
+      // or of the form:
+      //    ternary
+      //       condition
+      //       const 0/1
+      //       boolean expression
       else if ((node->getChild(2)->getOpCode().isLoadConst()
                 && isBooleanExpression(node->getChild(1)))
                || (node->getChild(1)->getOpCode().isLoadConst()
