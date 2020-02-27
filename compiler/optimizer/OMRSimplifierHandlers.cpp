@@ -13616,33 +13616,6 @@ TR::Node *ificmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
    removeArithmeticsUnderIntegralCompare(node, s);
    partialRedundantCompareElimination(node, block, s);
-   if (node->getFirstChild()->getOpCode().isBooleanCompare()
-       && node->getSecondChild()->getOpCode().isLoadConst())
-      {
-      int32_t value = node->getSecondChild()->getInt();
-      if (value < 1)
-         {
-         if (conditionalBranchFold(true, node, node->getFirstChild(), node->getSecondChild(), block, s))
-            return node;
-         }
-      else if (value > 1)
-         {
-         if (conditionalBranchFold(false, node, node->getFirstChild(), node->getSecondChild(), block, s))
-            return node;
-         }
-      else
-         {
-         TR::Node *origFirstChild = node->getFirstChild();
-         TR::Node *origSecondChild = node->getSecondChild();
-         TR::Node::recreate(node, origFirstChild->getOpCode().convertCmpToIfCmp());
-         node->setAndIncChild(0, origFirstChild->getFirstChild());
-         node->setAndIncChild(1, origFirstChild->getSecondChild());
-         origFirstChild->recursivelyDecReferenceCount();
-         origSecondChild->recursivelyDecReferenceCount();
-         return node;
-         }
-      }
-
    return node;
    }
 
