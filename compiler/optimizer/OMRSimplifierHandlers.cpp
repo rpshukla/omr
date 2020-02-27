@@ -15819,13 +15819,6 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
             return s->replaceNode(node, replacement, s->_curTree);
             }
          }
-      else if (node->getChild(1)->getOpCode().isBooleanCompare()
-               && !node->getChild(1)->getOpCode().isBranch()
-               && node->getChild(2)->getOpCode().isBooleanCompare()
-               && !node->getChild(2)->getOpCode().isBranch())
-         {
-         //TODO
-         }
       }
 
    return node;
