@@ -11759,7 +11759,7 @@ TR::Node *bxorSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    if (firstChild->getOpCode().isLoadConst() && secondChild->getOpCode().isLoadConst())
       {
       foldByteConstant(node, firstChild->getByte()^secondChild->getByte(), s, false /* !anchorChildren*/);
-return node;
+      return node;
       }
 
    orderChildren(node, firstChild, secondChild, s);
