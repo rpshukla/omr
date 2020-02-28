@@ -2036,9 +2036,8 @@ static bool evaluateIntComparison(TR_ComparisonTypes compareType, bool isUnsigne
  */
 static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node)
    {
-   bool toReturn = true;
    if (visited.contains(node))
-      return toReturn;
+      return true;
 
    visited.add(node);
 
