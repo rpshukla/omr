@@ -1974,6 +1974,24 @@ static TR::SymbolReference *getUniqueSymRef(TR::Node *node, bool &isLegal , TR::
    return savedSymRef;
    }
 
+/**
+ * \brief
+ *    Helper function for processSubTreeLeavesForITernaryCompare that evaluates
+ *    a comparison between two integer values.
+ *
+ * \param compareType
+ *    The type of comparison to evaluate.
+ *
+ * \param left
+ *    The first integer value to compare.
+ *
+ * \param right
+ *    The second integer value to compare.
+ *
+ * \return
+ *    True if the comparison evaluates to true. False if the comparison
+ *    evaluates to false.
+ */
 static bool evaluateIntComparison(TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t left, int64_t right)
    {
    switch (compareType)
@@ -2001,6 +2019,21 @@ static bool evaluateIntComparison(TR_ComparisonTypes compareType, bool isUnsigne
       }
    }
 
+/**
+ * \brief
+ *    Helper function for simplifyITernaryCompare which checks if the iternary
+ *    child of the compare node (and its subtrees) can be simplified.
+ *
+ * \param visited
+ *    Checklist of nodes to check. Initially empty.
+ *
+ * \param node
+ *    The iternary node which could potentially be simplified.
+ *
+ * \return
+ *    True if the iternary node and its subtrees can be simplified by
+ *    simplifyITernaryCompare.
+ */
 static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node)
    {
    bool toReturn = true;
@@ -2028,6 +2061,40 @@ static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited
    return false;
    }
 
+/**
+ * \brief
+ *    Helper function for simplifyITernaryCompare.
+ *
+ * \details
+ *    Recurses down across an iternary node and its subtrees.
+ *
+ *    Replaces the value of constant leaves with zero or one by comparing these
+ *    values to the constant in the outer compare node.
+ *
+ * \param visited
+ *    Checklist of nodes visited while performing this transformation. Initially
+ *    empty.
+ *
+ * \param node
+ *    The iternary node being simplified.
+ *
+ * \param compareType
+ *    The compare type of the original comparison node supplied to
+ *    simplifyITernaryCompare.
+ *
+ * \param isUnsignedCampare
+ *    True if the outer comparison node supplied to simplifyITernaryCompare was
+ *    an unsigned comparison. False if it was a signed comparison.
+ *
+ * \param constant
+ *    The value of the constant child of the outer comparison node.
+ *
+ * \param s
+ *    The simplifier object.
+ *
+ * \return
+ *    True if a transformation was performed. False otherwise.
+ */
 static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node, TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t constant, TR::Simplifier *s)
    {
    bool toReturn = true;
@@ -2078,6 +2145,34 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
    return toReturn;
    }
 
+/**
+ * \brief
+ *    Perform a simplification for the case where a comparison node compares the
+ *    result of an integer ternary node to a constant.
+ *
+ * \details
+ *    A simplification will be performed on the following pattern:
+ *    \verbatim
+ *    comparison
+ *       iternary
+ *       iconst
+ *    \endverbatim
+ *
+ *    Where the iternary node may have more iternary nodes as children, but will
+ *    eventually terminate with constant leaves.
+ *
+ *    The value of the iconst node is compared to the leaves of the iternary
+ *    node and these leaves are replaced either zero or one.
+ *
+ *    Replacing the values of the leaves of the iternary node(s) with zeros and
+ *    ones allows the tree to be further simplified by ternarySimplifier.
+ *
+ * \param compare
+ *    The comparison node being simpilfied.
+ *
+ * \param s
+ *    The simplifier object.
+ */
 static void simplifyITernaryCompare(TR::Node *compare, TR::Simplifier *s)
    {
    static char *disableITernaryCompareSimplification = feGetEnv("TR_disableITernaryCompareSimplification");
@@ -15723,7 +15818,7 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
        && node->getChild(1)->getOpCode().isInteger()
        && node->getChild(2)->getOpCode().isInteger())
       {
-      // handle case of integer ternary of the forms
+      // handle case of integer ternary of the form:
       //    ternary
       //       condition
       //       const 0/1
