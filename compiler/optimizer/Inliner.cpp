@@ -4678,21 +4678,26 @@ bool OMR_InlinerPolicy::tryToInlineTrivialMethod (TR_CallStack* callStack, TR_Ca
    return false;
    }
 
+#ifdef J9_PROJECT_SPECIFIC
 /**
  * \brief
  *    Check if the callee to be inlined is a recognized method that should not
  *    be inlined.
  *
- * For example, we should skip inlining indexOf methods for a known string
- * receiver so that other optimizations can be performed.
+ * \details
+ *    For example, we should skip inlining indexOf methods for a known string
+ *    receiver so that other optimizations can be performed.
  *
- * \parm calltarget
+ * \param calltarget
  *    The calltarget of the callee to be checked.
+ *
+ * \param tracer
+ *    The tracer to use.
  *
  * \return
  *    True if the calltarget should NOT be inlined.
  */
-static bool shouldSkipInliningRecognizedMethod(TR_CallTarget *calltarget)
+static bool shouldSkipInliningRecognizedMethod(TR_CallTarget *calltarget, TR_LogTracer *tracer)
    {
    TR::ResolvedMethodSymbol *calleeSymbol = calltarget->_calleeSymbol;
    TR::Node *callNode = calltarget->_myCallSite->_callNode;
@@ -4711,7 +4716,7 @@ static bool shouldSkipInliningRecognizedMethod(TR_CallTarget *calltarget)
             PrexKnowledgeLevel priorKnowledge = TR_PrexArgument::knowledgeLevel(stringArg);
             if (priorKnowledge == KNOWN_OBJECT)
                {
-               // TODO check for length < 4 ?
+               debugTrace(tracer, "Skip inlining indexOf recognized method with KNOWN_OBJECT receiver: call target %p, call node %p\n", calltarget, callNode);
                return true;
                }
             }
@@ -4722,13 +4727,13 @@ static bool shouldSkipInliningRecognizedMethod(TR_CallTarget *calltarget)
       }
       return false;
    }
+#endif
 
 //returns false when inlining fails
 //TODO: currently this method returns true in some cases when the inlining fails. This needs to be fixed
 bool TR_InlinerBase::inlineCallTarget2(TR_CallStack * callStack, TR_CallTarget *calltarget, TR::TreeTop** cursorTreeTop, bool inlinefromgraph, int32_t)
    {
    TR_InlinerDelimiter delimiter(tracer(),"inlineCallTarget2");
-
    //printf("*****INLINERCALLSITE2: BEGIN for calltarget %p*****\n",calltarget);
    TR::ResolvedMethodSymbol * calleeSymbol = calltarget->_calleeSymbol;
    TR::TreeTop * callNodeTreeTop = calltarget->_myCallSite->_callNodeTreeTop;
@@ -4737,11 +4742,10 @@ bool TR_InlinerBase::inlineCallTarget2(TR_CallStack * callStack, TR_CallTarget *
    TR::Node * callNode = calltarget->_myCallSite->_callNode;
    TR_VirtualGuardSelection *guard = calltarget->_guard;
 
-   if (shouldSkipInliningRecognizedMethod(calltarget))
-      {
-      debugTrace(tracer(), "Skip inlining recognized method for call target %p, call node %p\n", calltarget, callNode);
+#ifdef J9_PROJECT_SPECIFIC
+   if (shouldSkipInliningRecognizedMethod(calltarget, tracer()))
       return false;
-      }
+#endif
 
    calltarget->_myCallSite->_visitCount++;
 
