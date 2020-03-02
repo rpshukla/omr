@@ -1976,7 +1976,7 @@ static TR::SymbolReference *getUniqueSymRef(TR::Node *node, bool &isLegal , TR::
 
 /**
  * \brief
- *    Helper function for processSubTreeLeavesForITernaryCompare that evaluates
+ *    Helper function for processSubTreeLeavesForISelectCompare that evaluates
  *    a comparison between two integer values.
  *
  * \param compareType
@@ -2021,20 +2021,20 @@ static bool evaluateIntComparison(TR_ComparisonTypes compareType, bool isUnsigne
 
 /**
  * \brief
- *    Helper function for simplifyITernaryCompare which checks if the iternary
+ *    Helper function for simplifyISelectCompare which checks if the iselect
  *    child of the compare node (and its subtrees) can be simplified.
  *
  * \param visited
  *    Checklist of nodes to check. Initially empty.
  *
  * \param node
- *    The iternary node which could potentially be simplified.
+ *    The iselect node which could potentially be simplified.
  *
  * \return
- *    True if the iternary node and its subtrees can be simplified by
- *    simplifyITernaryCompare.
+ *    True if the iselect node and its subtrees can be simplified by
+ *    simplifyISelectCompare.
  */
-static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node)
+static bool canProcessSubTreeLeavesForISelectCompare(TR::NodeChecklist &visited, TR::Node *node)
    {
    if (visited.contains(node))
       return true;
@@ -2042,30 +2042,30 @@ static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited
    visited.add(node);
 
    if (node->getOpCodeValue() == TR::PassThrough)
-      return canProcessSubTreeLeavesForITernaryCompare(visited, node->getFirstChild());
+      return canProcessSubTreeLeavesForISelectCompare(visited, node->getFirstChild());
 
    if (node->getOpCode().isLoadConst()
        && node->getDataType().isIntegral())
       return true;
 
-   if (node->getOpCode().isTernary()
+   if (node->getOpCode().isSelect()
        && node->getDataType().isIntegral()
        && node->getReferenceCount() == 1)
       {
       TR::Node *left = node->getChild(1);
       TR::Node *right = node->getChild(2);
-      return canProcessSubTreeLeavesForITernaryCompare(visited, left)
-             && canProcessSubTreeLeavesForITernaryCompare(visited, right);
+      return canProcessSubTreeLeavesForISelectCompare(visited, left)
+             && canProcessSubTreeLeavesForISelectCompare(visited, right);
       }
    return false;
    }
 
 /**
  * \brief
- *    Helper function for simplifyITernaryCompare.
+ *    Helper function for simplifyISelectCompare.
  *
  * \details
- *    Recurses down across an iternary node and its subtrees.
+ *    Recurses down across an iselect node and its subtrees.
  *
  *    Replaces the value of constant leaves with zero or one by comparing these
  *    values to the constant in the outer compare node.
@@ -2075,14 +2075,14 @@ static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited
  *    empty.
  *
  * \param node
- *    The iternary node being simplified.
+ *    The iselect node being simplified.
  *
  * \param compareType
  *    The compare type of the original comparison node supplied to
- *    simplifyITernaryCompare.
+ *    simplifyISelectCompare.
  *
  * \param isUnsignedCampare
- *    True if the outer comparison node supplied to simplifyITernaryCompare was
+ *    True if the outer comparison node supplied to simplifyISelectCompare was
  *    an unsigned comparison. False if it was a signed comparison.
  *
  * \param constant
@@ -2094,7 +2094,7 @@ static bool canProcessSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited
  * \return
  *    True if a transformation was performed. False otherwise.
  */
-static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, TR::Node *node, TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t constant, TR::Simplifier *s)
+static bool processSubTreeLeavesForISelectCompare(TR::NodeChecklist &visited, TR::Node *node, TR_ComparisonTypes compareType, bool isUnsignedCompare, int64_t constant, TR::Simplifier *s)
    {
    bool toReturn = true;
    if (visited.contains(node))
@@ -2102,7 +2102,7 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
 
    visited.add(node);
 
-   if (node->getOpCode().isTernary() 
+   if (node->getOpCode().isSelect()
        && node->getDataType().isIntegral()
        && node->getReferenceCount() == 1)
       {
@@ -2110,7 +2110,7 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
       TR::Node *right = node->getChild(2);
       if (left->getOpCode().isLoadConst())
          {
-         if (performTransformation(s->comp(), "%sReplacing constant child of iternary node [" POINTER_PRINTF_FORMAT "] with 0 or 1\n", s->optDetailString(), node))
+         if (performTransformation(s->comp(), "%sReplacing constant child of iselect node [" POINTER_PRINTF_FORMAT "] with 0 or 1\n", s->optDetailString(), node))
             {
             node->setAndIncChild(1, evaluateIntComparison(compareType, isUnsignedCompare, left->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(left, left->getDataType()) : TR::Node::createConstZeroValue(left, left->getDataType()));
             left->decReferenceCount();
@@ -2118,11 +2118,11 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
          }
       else
          {
-         toReturn |= processSubTreeLeavesForITernaryCompare(visited, left, compareType, isUnsignedCompare, constant, s);
+         toReturn |= processSubTreeLeavesForISelectCompare(visited, left, compareType, isUnsignedCompare, constant, s);
          }
       if (right->getOpCode().isLoadConst())
          {
-         if (performTransformation(s->comp(), "%sReplacing constant child of iternary node [" POINTER_PRINTF_FORMAT "] with 0 or 1\n", s->optDetailString(), node))
+         if (performTransformation(s->comp(), "%sReplacing constant child of iselect node [" POINTER_PRINTF_FORMAT "] with 0 or 1\n", s->optDetailString(), node))
             {
             node->setAndIncChild(2, evaluateIntComparison(compareType, isUnsignedCompare, right->get64bitIntegralValue(), constant) ? TR::Node::createConstOne(right, right->getDataType()) : TR::Node::createConstZeroValue(right, right->getDataType()));
             right->decReferenceCount();
@@ -2130,12 +2130,12 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
          }
       else
          {
-         toReturn |= processSubTreeLeavesForITernaryCompare(visited, right, compareType, isUnsignedCompare, constant, s);
+         toReturn |= processSubTreeLeavesForISelectCompare(visited, right, compareType, isUnsignedCompare, constant, s);
          }
       }
    else if (node->getOpCodeValue() == TR::PassThrough)
       {
-      toReturn = processSubTreeLeavesForITernaryCompare(visited, node->getFirstChild(), compareType, isUnsignedCompare, constant, s);
+      toReturn = processSubTreeLeavesForISelectCompare(visited, node->getFirstChild(), compareType, isUnsignedCompare, constant, s);
       }
    else
       {
@@ -2147,24 +2147,24 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
 /**
  * \brief
  *    Perform a simplification for the case where a comparison node compares the
- *    result of an integer ternary node to a constant.
+ *    result of an integer select node to a constant.
  *
  * \details
  *    A simplification will be performed on the following pattern:
  *    \verbatim
  *    comparison
- *       iternary
+ *       iselect
  *       iconst
  *    \endverbatim
  *
- *    Where the iternary node may have more iternary nodes as children, but will
+ *    Where the iselect node may have more iselect nodes as children, but will
  *    eventually terminate with constant leaves.
  *
- *    The value of the iconst node is compared to the leaves of the iternary
+ *    The value of the iconst node is compared to the leaves of the iselect
  *    node and these leaves are replaced either zero or one.
  *
- *    Replacing the values of the leaves of the iternary node(s) with zeros and
- *    ones allows the tree to be further simplified by ternarySimplifier.
+ *    Replacing the values of the leaves of the iselect node(s) with zeros and
+ *    ones allows the tree to be further simplified by selectSimplifier.
  *
  * \param compare
  *    The comparison node being simpilfied.
@@ -2172,26 +2172,26 @@ static bool processSubTreeLeavesForITernaryCompare(TR::NodeChecklist &visited, T
  * \param s
  *    The simplifier object.
  */
-static void simplifyITernaryCompare(TR::Node *compare, TR::Simplifier *s)
+static void simplifyISelectCompare(TR::Node *compare, TR::Simplifier *s)
    {
-   static char *disableITernaryCompareSimplification = feGetEnv("TR_disableITernaryCompareSimplification");
-   if (disableITernaryCompareSimplification)
+   static char *disableISelectCompareSimplification = feGetEnv("TR_disableISelectCompareSimplification");
+   if (disableISelectCompareSimplification)
       return;
 
    if (compare->getOpCode().isBooleanCompare()
        && compare->getSecondChild()->getOpCode().isLoadConst()
        && compare->getSecondChild()->getOpCode().isInteger()
        && compare->getFirstChild()->getOpCode().isInteger()
-       && compare->getFirstChild()->getOpCode().isTernary()
+       && compare->getFirstChild()->getOpCode().isSelect()
        && compare->getFirstChild()->getReferenceCount() == 1)
       {
       TR::NodeChecklist safetyVisited(s->comp());
       TR_ComparisonTypes compareType = TR::ILOpCode::getCompareType(compare->getOpCodeValue());
       bool isUnsignedCompare = TR::ILOpCode(compare->getOpCode()).isUnsignedCompare();
-      if (canProcessSubTreeLeavesForITernaryCompare(safetyVisited, compare->getFirstChild()))
+      if (canProcessSubTreeLeavesForISelectCompare(safetyVisited, compare->getFirstChild()))
          {
          TR::NodeChecklist visited(s->comp());
-         processSubTreeLeavesForITernaryCompare(visited, compare->getFirstChild(), compareType, isUnsignedCompare, compare->getSecondChild()->get64bitIntegralValue(), s);
+         processSubTreeLeavesForISelectCompare(visited, compare->getFirstChild(), compareType, isUnsignedCompare, compare->getSecondChild()->get64bitIntegralValue(), s);
          TR::Node *constVal = compare->getSecondChild();
          if (performTransformation(s->comp(), "%sReplacing constant child of compare node [" POINTER_PRINTF_FORMAT "] with 0 after comparison of constants has been folded across children\n", s->optDetailString(), compare))
             {
@@ -13289,10 +13289,10 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
 
 TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13415,10 +13415,10 @@ TR::Node *ificmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13522,10 +13522,10 @@ TR::Node *ificmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13571,10 +13571,10 @@ TR::Node *ificmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13620,10 +13620,10 @@ TR::Node *ificmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13669,10 +13669,10 @@ TR::Node *ificmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *ificmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13721,10 +13721,10 @@ TR::Node *ificmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13765,10 +13765,10 @@ TR::Node *iflcmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13809,10 +13809,10 @@ TR::Node *iflcmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13851,10 +13851,10 @@ TR::Node *iflcmpltSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13893,10 +13893,10 @@ TR::Node *iflcmpleSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -13935,10 +13935,10 @@ TR::Node *iflcmpgtSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 TR::Node *iflcmpgeSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    simplifyChildren(node, block, s);
    if (removeIfToFollowingBlock(node, block, s) == NULL)
@@ -14201,10 +14201,10 @@ TR::Node *normalizeCmpSimplifier(TR::Node * node, TR::Block * block, TR::Simplif
 
 TR::Node *ifacmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -14239,10 +14239,10 @@ TR::Node *ifacmpeqSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 //
 TR::Node *ifacmpneSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * s)
    {
-   // Perform a simplification for the case where an iternary is conpared to a
+   // Perform a simplification for the case where an iselect is conpared to a
    // constant. This is done before simplifyChildren because it may allow
    // further transformations to be done on the children.
-   simplifyITernaryCompare(node, s);
+   simplifyISelectCompare(node, s);
 
    if (removeIfToFollowingBlock(node, block, s) == NULL)
       return NULL;
@@ -15765,12 +15765,12 @@ TR::Node *endBlockSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier 
 
 /**
  * \brief
- *    Helper function for ternarySimplifier which returns true if the given tree
+ *    Helper function for selectSimplifier which returns true if the given tree
  *    can be considered a boolean expression.
  *
  * \details
  *    To be considered a boolean expression, the tree must be comprised of
- *    comparisons, integer ternaries, or constant values of zero or one.
+ *    comparisons, integer selects, or constant values of zero or one.
  *
  * \param node
  *    The node to check.
@@ -15784,7 +15784,7 @@ static bool isBooleanExpression(TR::Node *node)
       return true;
    if (node->getOpCode().isBitwiseLogical())
       return isBooleanExpression(node->getFirstChild()) && isBooleanExpression(node->getSecondChild());
-   if (node->getOpCode().isTernary() && node->getOpCode().isInteger())
+   if (node->getOpCode().isSelect() && node->getOpCode().isInteger())
       return isBooleanExpression(node->getChild(1)) && isBooleanExpression(node->getChild(2));
    if (node->getOpCode().isLoadConst() && node->getOpCode().isInteger())
       return node->get64bitIntegralValue() == 0 || node->get64bitIntegralValue() == 1;
@@ -15817,8 +15817,8 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
        && node->getChild(1)->getOpCode().isInteger()
        && node->getChild(2)->getOpCode().isInteger())
       {
-      // handle case of integer ternary of the form:
-      //    ternary
+      // handle case of integer select of the form:
+      //    select
       //       condition
       //       const 0/1
       //       const 0/1
@@ -15829,7 +15829,7 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
          if (node->getChild(1)->get64bitIntegralValue() == 1
              && node->getChild(2)->get64bitIntegralValue() == 0)
             {
-            if (performTransformation(s->comp(), "%sReplacing trivial ternary node [" POINTER_PRINTF_FORMAT "] with condition node [" POINTER_PRINTF_FORMAT "]\n", s->optDetailString(), node, node->getFirstChild()))
+            if (performTransformation(s->comp(), "%sReplacing trivial select node [" POINTER_PRINTF_FORMAT "] with condition node [" POINTER_PRINTF_FORMAT "]\n", s->optDetailString(), node, node->getFirstChild()))
                return s->replaceNode(node, node->getFirstChild(), s->_curTree);
             }
          else if (node->getChild(1)->get64bitIntegralValue() == 0
@@ -15838,7 +15838,7 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
             TR::Node *replacement = NULL;
             if (node->getFirstChild()->getReferenceCount() == 1)
                {
-               if (performTransformation(s->comp(), "%sReversing ternary [" POINTER_PRINTF_FORMAT "] with children of constant values 0 and 1\n", s->optDetailString(), node))
+               if (performTransformation(s->comp(), "%sReversing select [" POINTER_PRINTF_FORMAT "] with children of constant values 0 and 1\n", s->optDetailString(), node))
                   {
                   TR::Node *replacement = node->getFirstChild();
                   TR::Node::recreate(replacement, replacement->getOpCode().getOpCodeForReverseBranch());
@@ -15847,7 +15847,7 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
                }
             else
                {
-               if (performTransformation(s->comp(), "%sReversing ternary [" POINTER_PRINTF_FORMAT "] with children of constant values 0 and 1\n", s->optDetailString(), node))
+               if (performTransformation(s->comp(), "%sReversing select [" POINTER_PRINTF_FORMAT "] with children of constant values 0 and 1\n", s->optDetailString(), node))
                   {
                   s->anchorChildren(node->getFirstChild(), s->_curTree);
                   TR::Node *replacement = TR::Node::create(node->getFirstChild(), node->getFirstChild()->getOpCode().getOpCodeForReverseBranch(), 2,
@@ -15857,13 +15857,13 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
                }
             }
          }
-      // handle case of integer ternary of the form:
-      //    ternary
+      // handle case of integer select of the form:
+      //    select
       //       condition
       //       boolean expression
       //       const 0/1
       // or of the form:
-      //    ternary
+      //    select
       //       condition
       //       const 0/1
       //       boolean expression
@@ -15908,7 +15908,7 @@ TR::Node *selectSimplifier(TR::Node * node, TR::Block * block, TR::Simplifier * 
                replacement = TR::Node::create(node, TR::ior, 2, cond1, cond2);
                }
             }
-         if (performTransformation(s->comp(), "%sReplacing ternary tree [" POINTER_PRINTF_FORMAT "] of constant leaves with equivalent boolean compare tree [" POINTER_PRINTF_FORMAT "]\n", s->optDetailString(), node, replacement))
+         if (performTransformation(s->comp(), "%sReplacing select tree [" POINTER_PRINTF_FORMAT "] of constant leaves with equivalent boolean compare tree [" POINTER_PRINTF_FORMAT "]\n", s->optDetailString(), node, replacement))
             {
             if (node->getReferenceCount() > 1)
                s->anchorNode(node, s->_curTree);
