@@ -13162,7 +13162,7 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
    bool isUnsignedCompare = node->getOpCode().isUnsignedCompare();
    bool isEqOrNotEqCompare = node->getOpCode().isCompareForEquality();
 
-   bool isSignednessTypeSupported = !isUnsignedCompare && opNode->cannotOverflow();
+   bool isSignednessTypeSupported = isEqOrNotEqCompare || (!isUnsignedCompare && opNode->cannotOverflow());
 
    if ((isAddOp || isSubOp)
          && isSignednessTypeSupported
@@ -13172,36 +13172,36 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
          && (opNode->getFutureUseCount() == opNode->getReferenceCount() - 1))
       {
       int64_t signedMax = 0, signedMin = 0;
-      int64_t oldConst1 = 0, oldConst2 = 0, newConst = 0;
+      uint64_t oldUConst1 = 0, oldUConst2 = 0, newUConst = 0;
 
       if (opNode->getOpCode().is1Byte())
          {
-         oldConst1 = opNode->getSecondChild()->getByte();
-         oldConst2 = secondChild->getByte();
+         oldUConst1 = opNode->getSecondChild()->getUnsignedByte();
+         oldUConst2 = secondChild->getUnsignedByte();
 
          signedMax = TR::getMaxSigned<TR::Int8>();
          signedMin = TR::getMinSigned<TR::Int8>();
          }
       else if (opNode->getOpCode().is2Byte())
          {
-         oldConst1 = opNode->getSecondChild()->getShortInt();
-         oldConst2 = secondChild->getShortInt();
+         oldUConst1 = opNode->getSecondChild()->getUnsignedShortInt();
+         oldUConst2 = secondChild->getUnsignedShortInt();
 
          signedMax = TR::getMaxSigned<TR::Int16>();
          signedMin = TR::getMinSigned<TR::Int16>();
          }
       else if (opNode->getOpCode().is4Byte())
          {
-         oldConst1 = opNode->getSecondChild()->getInt();
-         oldConst2 = secondChild->getInt();
+         oldUConst1 = opNode->getSecondChild()->getUnsignedInt();
+         oldUConst2 = secondChild->getUnsignedInt();
 
          signedMax = TR::getMaxSigned<TR::Int32>();
          signedMin = TR::getMinSigned<TR::Int32>();
          }
       else if (opNode->getOpCode().is8Byte())
          {
-         oldConst1 = opNode->getSecondChild()->getLongInt();
-         oldConst2 = secondChild->getLongInt();
+         oldUConst1 = opNode->getSecondChild()->getUnsignedLongInt();
+         oldUConst2 = secondChild->getUnsignedLongInt();
 
          signedMax = TR::getMaxSigned<TR::Int64>();
          signedMin = TR::getMinSigned<TR::Int64>();
@@ -13216,17 +13216,14 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
          return node;
          }
 
-      if (opNode->getFirstChild()->getOpCode().isBooleanCompare())
-         {
-         signedMax = 1;
-         signedMin = 0;
-         }
-
       if (!isEqOrNotEqCompare)
          {
          // check for signed overflow
          // Signed integer overflow is undefined behavior in C++11; and unsigned
          // arithmnetic operations are defined. Need to make sure that signed integer results don't overflow.
+         int64_t oldConst1 = static_cast<int64_t>(oldUConst1);
+         int64_t oldConst2 = static_cast<int64_t>(oldUConst2);
+
          bool canTransformAdd = isAddOp
                  && !(oldConst1 > 0 && (oldConst2 < signedMin + oldConst1))
                  && !(oldConst1 < 0 && (oldConst2 > signedMax + oldConst1));
@@ -13237,12 +13234,6 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
 
          if (!(canTransformAdd || canTransformSub))
             {
-            if (isAddOp && s->trace())
-               {
-               traceMsg(s->comp(), "  oldConst1 0x%llX oldConst2 0x%llX\n", oldConst1, oldConst2);
-               traceMsg(s->comp(), "  signedMax 0x%llX signedMin 0x%llX\n", signedMax, signedMin);
-               traceMsg(s->comp(), "  oldConst1<0 %d and oldConst2 > signedMax + coldConst1 %d\n", oldConst1 < 0, (oldConst2 > signedMax + oldConst1));
-               }
             if (s->trace())
                traceMsg(s->comp(),
                         "\nEliminating add/sub under order compare node n%dn failed due to overflow\n",
@@ -13258,7 +13249,7 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
       // C++, and that unsigned integer overflow is defined behavior: they shall obey the laws of
       // arithmetic modulo 2^n and produce wrapped values
       // The IL expects integer wrapping in case of overflow; and this matches unsigned integer behaviors in C++.
-      newConst = isAddOp ? (oldConst2 - oldConst1) : (oldConst2 + oldConst1);
+      newUConst = isAddOp ? (oldUConst2 - oldUConst1) : (oldUConst2 + oldUConst1);
 
       // Done checking constant values. Transform the tree.
       if (performTransformation(s->comp(),
@@ -13271,7 +13262,7 @@ TR::Node* removeArithmeticsUnderIntegralCompare(TR::Node* node,
          // calling constNode->setConstValue()
          // Hence, creating a new node here and copy the old node's internal info.
          TR::Node* newConstNode = TR::Node::create(secondChild, secondChild->getOpCodeValue(), 0);
-         newConstNode->setLongInt(newConst);
+         newConstNode->setUnsignedLongInt(newUConst);
          node->setAndIncChild(0, opNode->getFirstChild());
          node->setAndIncChild(1, newConstNode);
 
