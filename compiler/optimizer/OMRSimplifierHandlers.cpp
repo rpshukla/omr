@@ -1982,6 +1982,10 @@ static TR::SymbolReference *getUniqueSymRef(TR::Node *node, bool &isLegal , TR::
  * \param compareType
  *    The type of comparison to evaluate.
  *
+ * \param isUnsignedCampare
+ *    True if the outer comparison node supplied to simplifyISelectCompare was
+ *    an unsigned comparison. False if it was a signed comparison.
+ *
  * \param left
  *    The first integer value to compare.
  *
