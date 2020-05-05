@@ -478,6 +478,10 @@ bool OMR::CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
 
 bool OMR::CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
    {
+   static char *enableSimplifySimpleStore = feGetEnv("TR_enableSimplifySimpleStore");
+   if (enableSimplifySimpleStore == NULL)
+      return false;
+
    if (!(comp()->cg()->getSupportsSelect()))
       return false;
 
@@ -781,10 +785,6 @@ static bool checkEquivalentIndirectLoadChain(TR::Node *lhs, TR::Node *rhs)
 //
 bool OMR::CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
    {
-   static char *enableSimplifyBooleanStore = feGetEnv("TR_enableSimplifyBooleanStore");
-   if (enableSimplifyBooleanStore == NULL)
-      return false;
-
    if (!(comp()->cg()->getSupportsSelect()))
       return false;
 
