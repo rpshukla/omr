@@ -1300,7 +1300,7 @@ TR::Register *OMR::X86::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::Code
    TR::Register *falseReg = cg->evaluate(falseVal);
    bool trueValIs64Bit = TR::TreeEvaluator::getNodeIs64Bit(trueVal, cg);
    TR::Register *trueReg  = TR::TreeEvaluator::intOrLongClobberEvaluate(trueVal, trueValIs64Bit, cg);
-   if (!node->isNotCollected())
+   if (falseReg->containsCollectedReference())
       trueReg->setContainsCollectedReference();
 
    // don't need to test if we're already using a compare eq or compare ne
