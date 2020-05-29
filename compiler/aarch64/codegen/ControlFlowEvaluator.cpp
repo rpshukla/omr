@@ -814,6 +814,14 @@ OMR::ARM64::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::CodeGenerator *c
    TR::Register *falseReg = cg->evaluate(falseNode);
    TR::Register *resultReg = trueReg;
 
+   // Internal pointers cannot be handled since we cannot set the pinning array
+   // on the result register without knowing which side of the select will be
+   // taken.
+   if (trueReg->containsInternalPointer() || falseReg->containsInternalPointer())
+      TR_ASSERT(false, "Select node should not have children containing internal pointers.\n");
+   if (falseReg->containsCollectedReference())
+      resultReg->setContainsCollectedReference();
+
    if (!cg->canClobberNodesRegister(trueNode))
       {
       resultReg = (node->getOpCodeValue() == TR::aselect) ? cg->allocateCollectedReferenceRegister() : cg->allocateRegister();

@@ -949,8 +949,16 @@ TR::Register *OMR::Power::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::Co
                             cg->allocateRegister(TR_FPR) :
                             cg->allocateRegister(TR_GPR)));
 
+   TR::Register *  trueReg = cg->evaluate(node->getChild(1));
+   TR::Register * falseReg = cg->evaluate(node->getChild(2));
+
+   // Internal pointers cannot be handled since we cannot set the pinning array
+   // on the result register without knowing which side of the select will be
+   // taken.
+   if (trueReg->containsInternalPointer() || falseReg->containsInternalPointer())
+      TR_ASSERT(false, "Select node should not have children containing internal pointers.\n");
    // Mark the result reg as collected reference if required.
-   if (!node->isNotCollected())
+   if (trueReg->containsCollectedReference() || falseReg->containsCollectedReference())
       {
       resultReg->setContainsCollectedReference();
       }
@@ -967,8 +975,6 @@ TR::Register *OMR::Power::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::Co
       // (cmp1Reg [branch_opcode] cmp2Reg) ? trueReg : falseReg;
       TR::DataType compare_type = firstChild->getFirstChild()->getType();
 
-      TR::Register * trueReg = cg->evaluate(node->getChild(1));
-      TR::Register * falseReg = cg->evaluate(node->getChild(2));
       TR::Register * cmp1Reg = cg->evaluate(firstChild->getFirstChild());
       TR::Register * cmp2Reg = NULL;      //Do not evaluate this unless we have to.
 
@@ -1091,8 +1097,6 @@ TR::Register *OMR::Power::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::Co
       }
    else
       {
-      TR::Register *  trueReg = cg->evaluate(node->getChild(1));
-      TR::Register * falseReg = cg->evaluate(node->getChild(2));
       TR::Register *  condReg = cg->evaluate(node->getChild(0));
 
       TR::Register *ccr       = cg->allocateRegister(TR_CCR);

@@ -2549,6 +2549,14 @@ OMR::Z::TreeEvaluator::selectEvaluator(TR::Node *node, TR::CodeGenerator *cg)
 
    TR::Register *falseReg = cg->evaluate(falseVal); //cg->gprClobberEvaluate(falseVal);
 
+   // Internal pointers cannot be handled since we cannot set the pinning array
+   // on the result register without knowing which side of the select will be
+   // taken.
+   if (trueReg->containsInternalPointer() || falseReg->containsInternalPointer())
+      TR_ASSERT(false, "Select node should not have children containing internal pointers.\n");
+   if (falseReg->containsCollectedReference())
+      trueReg->setContainsCollectedReference();
+
    if (comp->getOption(TR_TraceCG))
       traceMsg(comp, "Done evaluating child %p in reg %p and %p in reg %p\n",trueVal,trueReg,falseVal,falseReg);
 
@@ -2677,9 +2685,6 @@ OMR::Z::TreeEvaluator::selectEvaluator(TR::Node *node, TR::CodeGenerator *cg)
          cFlowRegionEnd->setEndInternalControlFlow();
          }
       }
-
-   if (!node->isNotCollected())
-      trueReg->setContainsCollectedReference();
 
    if (comp->getOption(TR_TraceCG))
       traceMsg(comp, "Setting node %p register to %p\n",node,trueReg);
