@@ -2032,10 +2032,9 @@ TR::Register *OMR::X86::CodeGenerator::gprClobberEvaluate(TR::Node * node, TR_X8
 
       TR::Register *targetRegister = self()->allocateRegister();
       generateRegRegInstruction(movRegRegOpCode, node, targetRegister, sourceRegister, self());
-      //
-      // TODO: Should we do this?
-      // if (sourceRegister->containsCollectedReference())
-      //    targetRegister->setContainsCollectedReference();
+
+      if (sourceRegister->containsCollectedReference())
+         targetRegister->setContainsCollectedReference();
 
       return targetRegister;
       }
