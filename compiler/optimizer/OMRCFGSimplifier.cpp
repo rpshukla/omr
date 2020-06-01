@@ -474,6 +474,10 @@ bool OMR::CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
 
 bool OMR::CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
    {
+   static char *enableSimplifyCondStoreSequence = feGetEnv("TR_enableSimplifyCondStoreSequence");
+   if (enableSimplifyCondStoreSequence == NULL)
+      return false;
+
    if (!(comp()->cg()->getSupportsSelect()))
       return false;
 
