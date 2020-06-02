@@ -644,6 +644,12 @@ bool OMR::CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
 
 bool OMR::CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
    {
+   // This simplification is temporarily disabled while issues are investigated.
+   // See https://github.com/eclipse/openj9/issues/9754
+   static char *enableSimplifyNullToException = feGetEnv("TR_enableSimplifyNullToException");
+   if (enableSimplifyNullToException == NULL)
+      return false;
+
    static char *disableSimplifyExplicitNULLTest = feGetEnv("TR_disableSimplifyExplicitNULLTest");
    static char *disableSimplifyNullToException = feGetEnv("TR_disableSimplifyNullToException");
    if (disableSimplifyExplicitNULLTest != NULL || disableSimplifyNullToException != NULL)
