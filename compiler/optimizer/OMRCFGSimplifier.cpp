@@ -285,7 +285,8 @@ bool OMR::CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateT
    TR::Node *classNode = compareNode->getFirstChild()->getSecondChild();
 
    TR::Block *catchBlock = TR::Block::createEmptyBlock(compareNode, comp(), throwBlock->getFrequency());
-   catchBlock->setHandlerInfo(0, comp()->getInlineDepth(), 0, comp()->getCurrentMethod(), comp());
+   uint32_t possibleExceptions = TR::Block::CanCatchCheckCast | TR::Block::CanCatchNullCheck;
+   catchBlock->setHandlerInfo(possibleExceptions, comp()->getInlineDepth(), 0, comp()->getCurrentMethod(), comp());
    TR::Node *gotoNode = TR::Node::create(compareNode, TR::Goto, 0);
    gotoNode->setBranchDestination(throwBlock->getEntry());
    catchBlock->append(TR::TreeTop::create(comp(), gotoNode));
@@ -704,7 +705,7 @@ bool OMR::CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
    compareTreeTop->insertBefore(TR::TreeTop::create(comp(), nullchkNode));
 
    TR::Block *catchBlock = TR::Block::createEmptyBlock(compareNode, comp(), nullBlock->getFrequency());
-   catchBlock->setHandlerInfo(0, comp()->getInlineDepth(), 0, comp()->getCurrentMethod(), comp());
+   catchBlock->setHandlerInfo(TR::Block::CanCatchNullCheck, comp()->getInlineDepth(), 0, comp()->getCurrentMethod(), comp());
    TR::Node *gotoNode = TR::Node::create(compareNode, TR::Goto, 0);
    gotoNode->setBranchDestination(nullBlock->getEntry());
    catchBlock->append(TR::TreeTop::create(comp(), gotoNode));
