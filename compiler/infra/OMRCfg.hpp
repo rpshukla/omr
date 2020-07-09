@@ -185,11 +185,26 @@ class CFG
 
    /**
     * Create and store exception edge from CFGNode f to CFGNode t 
+    *
+    * The new edge will not be added if there is an existing exception edge
+    * from the "from" node to an existing block which catches the same
+    * exceptions as the new "to" block.
+    *
     * @param f   CFGNode from
     * @param t   CFGNode to
-    * @return    Pointer to newly created exception edge
     */
    void addExceptionEdge(TR::CFGNode *f, TR::CFGNode *t);
+
+   /**
+    * Create and store exception edge from CFGNode f to CFGNode t
+    *
+    * The new edge will be added even if there is an existing exception edge
+    * exiting the "from" node.
+    *
+    * @param f   CFGNode from
+    * @param t   CFGNode to
+    */
+   void addExceptionEdgeUnchecked(TR::CFGNode *f, TR::CFGNode *t);
    void addSuccessorEdges(TR::Block * block);
 
    void copyExceptionSuccessors(TR::CFGNode *from, TR::CFGNode *to, bool (*predicate)(TR::CFGEdge *) = OMR::alwaysTrue);
@@ -370,6 +385,23 @@ protected:
    int32_t                  _oldMaxEdgeFrequency;
    TR_BitVector            *_frequencySet;
    double                  *_edgeProbabilities; // temp array
+
+private:
+   /**
+    * Helper method to create and store exception edge from CFGNode f to
+    * CFGNode t
+    *
+    * If checkForExistingEdge is true, the new edge will not be added if there
+    * is an existing exception edge from the "from" node to an existing block
+    * which catches the same exceptions as the new "to" block.
+    *
+    * @param f   CFGNode from
+    * @param t   CFGNode to
+    * @param checkForExistingEdge bool Whether or not to check for an existing
+    *    exception edge before adding the new one.
+    */
+   void addExceptionEdgeInternal(TR::CFGNode *f, TR::CFGNode *t, bool checkForExistingEdge);
+
 
 public: //FIXME: These public members should eventually be wrtapped in an interface.
    int32_t                  _max_edge_freq;
