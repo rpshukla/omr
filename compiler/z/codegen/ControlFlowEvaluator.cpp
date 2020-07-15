@@ -2678,7 +2678,7 @@ OMR::Z::TreeEvaluator::selectEvaluator(TR::Node *node, TR::CodeGenerator *cg)
          }
       }
 
-   if (!node->isNotCollected())
+   if (falseReg->containsCollectedReference())
       trueReg->setContainsCollectedReference();
 
    if (comp->getOption(TR_TraceCG))
