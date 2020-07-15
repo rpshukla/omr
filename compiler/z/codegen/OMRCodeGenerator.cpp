@@ -2999,6 +2999,9 @@ OMR::Z::CodeGenerator::gprClobberEvaluate(TR::Node * node, bool force_copy, bool
             debugObj->addInstructionComment( toS390RRInstruction(cursor), CLOBBER_EVAL);
             }
 
+         if (srcRegister->containsCollectedReference())
+            targetRegister->setContainsCollectedReference();
+
          return targetRegister;
          }
       }
