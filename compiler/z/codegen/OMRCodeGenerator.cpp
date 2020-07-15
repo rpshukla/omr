@@ -2936,6 +2936,7 @@ OMR::Z::CodeGenerator::gprClobberEvaluate(TR::Node * node, bool force_copy, bool
 #else
    TR_ASSERT(!node->getType().isAggregate(),"Aggr node (%s) %p should use ssrClobberEvaluate\n", node->getOpCode().getName(),node);
 #endif
+   TR::Register * targetRegister = NULL;
 
    TR_ClobberEvalData data;
    if (!self()->canClobberNodesRegister(node, 1, &data, ignoreRefCount) || force_copy)
@@ -2943,48 +2944,41 @@ OMR::Z::CodeGenerator::gprClobberEvaluate(TR::Node * node, bool force_copy, bool
       char * CLOBBER_EVAL = "LR=Clobber_eval";
       if (node->getOpCode().isFloat())
          {
-         TR::Register * targetRegister = self()->allocateSinglePrecisionRegister();
+         targetRegister = self()->allocateSinglePrecisionRegister();
          cursor = generateRRInstruction(self(), TR::InstOpCode::LER, node, targetRegister, srcRegister);
          if (debugObj)
             {
             debugObj->addInstructionComment(toS390RRInstruction(cursor), CLOBBER_EVAL);
             }
-
-         return targetRegister;
          }
       else if (node->getOpCode().isDouble())
          {
-         TR::Register * targetRegister = self()->allocateSinglePrecisionRegister();
+         targetRegister = self()->allocateSinglePrecisionRegister();
          cursor = generateRRInstruction(self(), TR::InstOpCode::LDR, node, targetRegister, srcRegister);
          if (debugObj)
             {
             debugObj->addInstructionComment(toS390RRInstruction(cursor), CLOBBER_EVAL);
             }
-
-         return targetRegister;
          }
 #ifdef J9_PROJECT_SPECIFIC
       else if (node->getDataType() == TR::DecimalLongDouble)
          {
-         TR::Register * targetRegister = self()->allocateFPRegisterPair();
+         targetRegister = self()->allocateFPRegisterPair();
          cursor = generateRRInstruction(self(), TR::InstOpCode::LXR, node, targetRegister, srcRegister);
          if (debugObj)
             {
             debugObj->addInstructionComment(toS390RRInstruction(cursor), CLOBBER_EVAL);
             }
-
-         return targetRegister;
          }
 #endif
       else if (node->getOpCode().isVector())
          {
-         TR::Register * targetRegister = self()->allocateClobberableRegister(srcRegister);
+         targetRegister = self()->allocateClobberableRegister(srcRegister);
          generateVRRaInstruction(self(), TR::InstOpCode::VLR, node, targetRegister, srcRegister);
-         return targetRegister;
          }
       else
          {
-         TR::Register * targetRegister = self()->allocateClobberableRegister(srcRegister);
+         targetRegister = self()->allocateClobberableRegister(srcRegister);
          TR::InstOpCode::Mnemonic loadRegOpCode = TR::InstOpCode::getLoadRegOpCodeFromNode(self(), node);
 
          if (srcRegister->is64BitReg())
@@ -2998,9 +2992,12 @@ OMR::Z::CodeGenerator::gprClobberEvaluate(TR::Node * node, bool force_copy, bool
             {
             debugObj->addInstructionComment( toS390RRInstruction(cursor), CLOBBER_EVAL);
             }
-
-         return targetRegister;
          }
+
+      if (srcRegister->containsCollectedReference())
+         targetRegister->setContainsCollectedReference();
+
+      return targetRegister;
       }
    return srcRegister;
    }
