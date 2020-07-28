@@ -3617,6 +3617,9 @@ TR::Register *OMR::X86::I386::TreeEvaluator::lselectEvaluator(TR::Node *node, TR
    TR::Register *falseReg = cg->evaluate(falseVal);
    TR::Register *trueReg  = cg->longClobberEvaluate(trueVal);
 
+   if (falseReg->containsCollectedReference())
+      trueReg->setContainsCollectedReference();
+
    auto condOp = condition->getOpCode();
    bool longCompare = (condition->getOpCode().isBooleanCompare() && condition->getFirstChild()->getOpCode().isLong());
    if (!longCompare && condOp.isCompareForEquality() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
