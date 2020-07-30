@@ -57,6 +57,7 @@ namespace OMR { typedef OMR::Compilation CompilationConnector; }
 #include "il/DataTypes.hpp"
 #include "il/IL.hpp"
 #include "il/Node.hpp"
+#include "il/ParameterSymbol.hpp"
 #include "il/ResolvedMethodSymbol.hpp"
 #include "infra/Array.hpp"
 #include "infra/Flags.hpp"
@@ -635,13 +636,29 @@ public:
       bool _cannotAttemptOSRDuring;
 
       public:
+      /**
+       * Maps call site args to parms of the top level method
+       *
+       * E.g.
+       *    acall foo
+       *       aload (top level parm 2)
+       *
+       *    In this case, argsToTopLevelParms[0] will point to the ParameterSymbol
+       *    of parm 2 of the top level method.
+       *
+       *    If the arg is not a parm or the parm is variant inside the body of the
+       *    caller, NULL will be stored for that arg.
+       */
+      TR_Array<TR::ParameterSymbol *> argsToTopLevelParms;
+      bool argsToTopLevelParmsArrayInitialized;
 
       TR_InlinedCallSiteInfo(TR_OpaqueMethodBlock *methodInfo,
                              TR_ByteCodeInfo &bcInfo,
                              TR::ResolvedMethodSymbol *resolvedMethod,
                              TR::SymbolReference *callSymRef,
                              bool directCall):
-         _resolvedMethod(resolvedMethod), _callSymRef(callSymRef), _directCall(directCall), _osrCallSiteRematTable(0), _cannotAttemptOSRDuring(false)
+         _resolvedMethod(resolvedMethod), _callSymRef(callSymRef), _directCall(directCall), _osrCallSiteRematTable(0), _cannotAttemptOSRDuring(false),
+         argsToTopLevelParmsArrayInitialized(false)
          {
          _site._methodInfo = methodInfo;
          _site._byteCodeInfo = bcInfo;
@@ -656,6 +673,15 @@ public:
       bool directCall() { return _directCall; }
       bool cannotAttemptOSRDuring() { return _cannotAttemptOSRDuring; }
       void setCannotAttemptOSRDuring(bool cannotOSR) { _cannotAttemptOSRDuring = cannotOSR; }
+      /**
+       * @brief Initializes argsToTopLevelParms and fills with NULL values.
+       *
+       * @param[in] comp : the compilation object
+       *
+       * @param[in] size : the size of the array (i.e. the number of args for
+       *                   the call site)
+       */
+      void initArgsToTopLevelParmsArray(TR::Compilation *comp, uint32_t size);
       };
 
    uint32_t getNumInlinedCallSites();
@@ -670,6 +696,14 @@ public:
    bool isInlinedDirectCall(uint32_t index);
    bool cannotAttemptOSRDuring(uint32_t index);
    void setCannotAttemptOSRDuring(uint32_t index, bool cannot);
+   /**
+    * @brief Populates argsToTopLevelParms array for the specified call site.
+    *
+    * @param[in] index : the call site index
+    *
+    * @param[in] callNode : the call node at the call site
+    */
+   void mapCallSiteArgsToTopLevelParms(uint32_t index, TR::Node *callNode);
 
    TR_InlinedCallSite *getCurrentInlinedCallSite();
    int32_t getCurrentInlinedSiteIndex();

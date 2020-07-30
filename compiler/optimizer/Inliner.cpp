@@ -4704,6 +4704,8 @@ bool TR_InlinerBase::inlineCallTarget2(TR_CallStack * callStack, TR_CallTarget *
 
    debugTrace(tracer(),"Starting Physical Inlining for call target %p at callsite %p with visit count %d and numtargets = %d \n Available temps: ",calltarget,calltarget->_myCallSite,calltarget->_myCallSite->_visitCount, calltarget->_myCallSite->numTargets());
 
+   comp()->mapCallSiteArgsToTopLevelParms(comp()->getCurrentInlinedSiteIndex(), callNode);
+
    static char *teststring = feGetEnv("TR_WHOSINLININGME");
    if (teststring && strncmp(calleeSymbol->signature(trMemory()), teststring, strlen(teststring))==0 )
       printf(" Inlining %s INTO %s\n",calleeSymbol->signature(trMemory()),comp()->getMethodSymbol()->signature(trMemory()));

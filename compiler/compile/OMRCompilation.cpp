@@ -194,6 +194,15 @@ static TR::CodeGenerator * allocateCodeGenerator(TR::Compilation * comp)
 
 
 
+void OMR::Compilation::TR_InlinedCallSiteInfo::initArgsToTopLevelParmsArray(TR::Compilation *comp, uint32_t size)
+   {
+   if (argsToTopLevelParmsArrayInitialized) return;
+   argsToTopLevelParmsArrayInitialized = true;
+
+   argsToTopLevelParms.init(comp->trMemory(), size, true);
+   // init only sets internal size of array
+   argsToTopLevelParms.setSize(size);
+   }
 
 OMR::Compilation::Compilation(
       int32_t id,
@@ -2386,6 +2395,69 @@ void
 OMR::Compilation::setCannotAttemptOSRDuring(uint32_t index, bool cannotOSR)
    {
    _inlinedCallSites[index].setCannotAttemptOSRDuring(cannotOSR);
+   }
+
+void OMR::Compilation::mapCallSiteArgsToTopLevelParms(uint32_t index, TR::Node *callNode)
+   {
+   TR_InlinedCallSiteInfo *callSiteInfo = &(_inlinedCallSites[index]);
+
+   callSiteInfo->initArgsToTopLevelParmsArray(self(), callNode->getNumChildren());
+
+   for (uint32_t i = callNode->getFirstArgumentIndex(); i < callNode->getNumChildren(); ++i)
+      {
+      // Check if child is a parm
+      auto child = callNode->getChild(i);
+      if (!child->getOpCode().hasSymbolReference())
+         {
+         continue;
+         }
+      OMR::Symbol *symbol = child->getSymbol();
+      if (!symbol || !symbol->isParm())
+         {
+         continue;
+         }
+
+      // Check if parm is invariant in the body of the caller
+      TR::ParameterSymbol *parmSymbol = symbol->getParmSymbol();
+      int16_t callerIndex = callNode->getByteCodeInfo().getCallerIndex();
+      TR::ResolvedMethodSymbol *callerMethodSymbol;
+      TR_InlinedCallSiteInfo *callerCallSiteInfo = NULL;
+      if (callerIndex == -1)
+         {
+         callerMethodSymbol = self()->getJittedMethodSymbol();
+         }
+      else
+         {
+         callerCallSiteInfo = &(_inlinedCallSites[callerIndex]);
+         callerMethodSymbol = callerCallSiteInfo->resolvedMethodSymbol();
+         }
+      if (callerMethodSymbol->isParmVariant(parmSymbol))
+         {
+         continue;
+         }
+
+      int32_t parmOrdinal = parmSymbol->getOrdinal();
+      if (callerIndex == -1)
+         {
+         // Caller is the jitted method
+         ListIterator<TR::ParameterSymbol> parms(&callerMethodSymbol->getParameterList());
+         int32_t currentParmOrdinal = 0;
+         for (TR::ParameterSymbol *p = parms.getFirst(); p; p = parms.getNext())
+            {
+            if (currentParmOrdinal == parmOrdinal)
+               {
+               callSiteInfo->argsToTopLevelParms[i] = p;
+               break;
+               }
+            ++currentParmOrdinal;
+            }
+         }
+      else
+         {
+         // Caller is an inlined method
+         callSiteInfo->argsToTopLevelParms[i] = callerCallSiteInfo->argsToTopLevelParms[parmOrdinal];
+         }
+      }
    }
 
 TR_InlinedCallSite *
