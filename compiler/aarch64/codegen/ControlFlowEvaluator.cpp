@@ -814,6 +814,9 @@ OMR::ARM64::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::CodeGenerator *c
    TR::Register *falseReg = cg->evaluate(falseNode);
    TR::Register *resultReg = cg->canClobberNodesRegister(condNode) ? condReg : cg->allocateRegister();
 
+   if (falseReg->containsCollectedReference() || trueReg->containsCollectedReference())
+      resultReg->setContainsCollectedReference();
+
    generateCompareImmInstruction(cg, node, condReg, 0, true); // 64-bit compare
    generateCondTrg1Src2Instruction(cg, TR::InstOpCode::cselx, node, resultReg, trueReg, falseReg, TR::CC_NE);
 

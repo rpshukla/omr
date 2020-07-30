@@ -883,6 +883,9 @@ OMR::ARM64::TreeEvaluator::fselectEvaluator(TR::Node *node, TR::CodeGenerator *c
    generateTrg1Src1Instruction(cg, movOp, node, resultReg, falseReg);
    generateLabelInstruction(cg, TR::InstOpCode::label, node, doneLabel);
 
+   if (falseReg->containsCollectedReference() || trueReg->containsCollectedReference())
+      resultReg->setContainsCollectedReference();
+
    node->setRegister(resultReg);
    cg->decReferenceCount(condNode);
    cg->decReferenceCount(trueNode);
