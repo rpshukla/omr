@@ -2702,6 +2702,8 @@ OMR::Z::TreeEvaluator::dselectEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    TR::Register *resultReg = cg->gprClobberEvaluate(trueValueNode);
    TR::Register *conditionReg = cg->evaluate(conditionNode);
    TR::Register *falseValReg = cg->evaluate(falseValueNode);
+   if (falseValReg->containsCollectedReference())
+      resultReg->setContainsCollectedReference();
    if (cg->comp()->target().cpu.isAtLeast(OMR_PROCESSOR_S390_Z13) && node->getOpCode().isDouble())
       {
       TR::Register *vectorSelReg = cg->allocateRegister(TR_VRF);
