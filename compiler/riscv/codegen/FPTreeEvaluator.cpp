@@ -1034,9 +1034,14 @@ commonFpSelectEvaluator(TR::Node *node, bool isDouble, TR::CodeGenerator *cg)
    TR::Register *falseReg = cg->evaluate(falseNode);
    TR::RealRegister *zero = cg->machine()->getRealRegister(TR::RealRegister::zero);
 
+   if (falseReg->containsCollectedReference())
+      trueReg->setContainsCollectedReference();
+
    if (!cg->canClobberNodesRegister(trueNode))
       {
       TR::Register* resultReg = cg->allocateRegister(TR_FPR);
+      if (trueReg->containsCollectedReference())
+         resultReg->setContainsCollectedReference();
       if (isDouble)
          generateRTYPE(TR::InstOpCode::_fsgnj_d, node, resultReg, trueReg, trueReg, cg);
       else

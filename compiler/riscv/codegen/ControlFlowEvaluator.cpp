@@ -511,6 +511,8 @@ OMR::RV::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    TR::Register *falseReg = cg->evaluate(falseNode);
    TR::RealRegister *zero = cg->machine()->getRealRegister(TR::RealRegister::zero);
 
+   if (falseReg->containsCollectedReference())
+      trueReg->containsCollectedReference();
 
    TR::LabelSymbol *startLabel = generateLabelSymbol(cg);
    TR::LabelSymbol *joinLabel = generateLabelSymbol(cg);
