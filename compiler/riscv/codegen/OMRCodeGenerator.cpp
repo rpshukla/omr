@@ -351,8 +351,13 @@ TR::Register *OMR::RV::CodeGenerator::gprClobberEvaluate(TR::Node *node)
    {
    if (node->getReferenceCount() > 1)
       {
+      TR::Register *sourceReg = self()->evaluate(node);
       TR::Register *targetReg = self()->allocateRegister();
-      generateITYPE(TR::InstOpCode::_addi, node, targetReg, self()->evaluate(node), 0, self());
+      generateITYPE(TR::InstOpCode::_addi, node, targetReg, sourceReg, 0, self());
+
+      if (sourceReg->containsCollectedReference())
+         targetReg->setContainsCollectedReference();
+
       return targetReg;
       }
    else
