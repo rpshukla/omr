@@ -814,6 +814,9 @@ OMR::ARM64::TreeEvaluator::iselectEvaluator(TR::Node *node, TR::CodeGenerator *c
    TR::Register *falseReg = cg->evaluate(falseNode);
    TR::Register *resultReg = trueReg;
 
+   if (falseReg->containsCollectedReference())
+      resultReg->setContainsCollectedReference();
+
    if (!cg->canClobberNodesRegister(trueNode))
       {
       resultReg = (node->getOpCodeValue() == TR::aselect) ? cg->allocateCollectedReferenceRegister() : cg->allocateRegister();
