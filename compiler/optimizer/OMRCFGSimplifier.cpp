@@ -667,10 +667,6 @@ static bool containsIndirectOperation(TR::Compilation *comp, TR::TreeTop *treeto
 
 bool OMR::CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
    {
-   static char *enableSimplifyCondStoreSequence = feGetEnv("TR_enableSimplifyCondStoreSequence");
-   if (enableSimplifyCondStoreSequence == NULL)
-      return false;
-
    if (!(comp()->cg()->getSupportsSelect()))
       return false;
 
