@@ -9744,7 +9744,48 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
        static const char* disableProfiled2Overridden = feGetEnv ("TR_DisableProfiled2Overridden");
        if (!disableProfiled2Overridden && callNode && vp->lastTimeThrough())
           {
+          if (!callNode->getSymbolReference()->isUnresolved())
+             {
+             TR::Node *methodPtrNode = node->getSecondChild();
+             TR_OpaqueClassBlock* classFromMethod = vp->comp()->fe()->getClassFromMethodBlock((TR_OpaqueMethodBlock*)methodPtrNode->getAddress());
 
+             TR::Node *loadNode = node->getFirstChild()->getFirstChild();
+             bool isGlobal = false;
+             TR::VPConstraint *loadConstraint = vp->getConstraint(loadNode, isGlobal);
+             TR_OpaqueClassBlock* lhsClass = loadConstraint ? loadConstraint->getClass() : NULL;
+
+             traceMsg(vp->comp(), "lhsClass: %x, classFromMethod: %x", lhsClass, classFromMethod);
+             bool lhsMoreSpecific = lhsClass && classFromMethod
+                && ((lhsClass == classFromMethod) || (vp->comp()->fe()->isInstanceOf(lhsClass, classFromMethod, true)));
+
+             if (lhsMoreSpecific && methodPtrNode->getSymbolReference() && !methodPtrNode->getSymbolReference()->isUnresolved())
+                {
+                traceMsg(vp->comp(), "lhsMoreSpecific");
+                TR_PersistentCHTable *chTable = vp->comp()->getPersistentInfo()->getPersistentCHTable();
+                TR_ResolvedMethod* resolvedMethod = methodPtrNode->getSymbolReference()->getSymbol()->getResolvedMethodSymbol()->getResolvedMethod();
+                int32_t vftSlot = callNode->getSymbolReference()->getOffset();
+                if (!chTable->isOverriddenInThisHierarchy(resolvedMethod, lhsClass, vftSlot, vp->comp()) &&
+                   !vp->comp()->getOption(TR_DisableHierarchyInlining))
+                   {
+                      traceMsg(vp->comp(), "not overridden");
+                      if(vp->comp()->trace(OMR::inlining))
+                         {
+                         int32_t len;
+                         bool isClassObsolete = vp->comp()->getPersistentInfo()->isObsoleteClass((void*)lhsClass, vp->comp()->fe());
+                         if(!isClassObsolete)
+                            {
+                            char *s = TR::Compiler->cls.classNameChars(vp->comp(), lhsClass, len);
+                            traceMsg(vp->comp(),"vphandlers: Virtual call to %s is not overridden in the hierarchy of thisClass %*s\n", resolvedMethod->signature(vp->comp()->trMemory()), len, s);
+                            addDelayedConvertedGuard(node, callNode, NULL, vGuard, vp, TR_HierarchyGuard, TR_VftTest, lhsClass);
+                            }
+                         else
+                            {
+                            traceMsg(vp->comp(),"vphandlers: Virtual call to %s is not overridden in the hierarchy of thisClass <obsolete class>\n", resolvedMethod->signature(vp->comp()->trMemory()));
+                            }
+                         }
+                   }
+                }
+             }
 
           TR_OpaqueClassBlock* callClass = NULL;
           TR::MethodSymbol* interfaceMethodSymbol = NULL;
