@@ -9744,16 +9744,50 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
        static const char* disableProfiled2Overridden = feGetEnv ("TR_DisableProfiled2Overridden");
        if (!disableProfiled2Overridden && callNode && vp->lastTimeThrough())
           {
-          if (!callNode->getSymbolReference()->isUnresolved())
+          bool isFixedClass = false;
+          TR::Node *methodPtrNode = node->getSecondChild();
+          bool isMethodTest = vp->comp()->getSymRefTab()->isVtableEntrySymbolRef(node->getFirstChild()->getSymbolReference());
+          TR_OpaqueClassBlock* inlinedMethodClass = NULL;
+          if (isMethodTest && !callNode->getSymbolReference()->isUnresolved())
              {
-             TR::Node *methodPtrNode = node->getSecondChild();
-             TR_OpaqueClassBlock* classFromMethod = vp->comp()->fe()->getClassFromMethodBlock((TR_OpaqueMethodBlock*)methodPtrNode->getAddress());
-
+             traceMsg(vp->comp(), "isMethodTest\n");
+             // If the profiled guard is a method test, get objectClass from the
+             // child of the lhs node and rhsClass from the method pointer.
              TR::Node *loadNode = node->getFirstChild()->getFirstChild();
              bool isGlobal = false;
              TR::VPConstraint *loadConstraint = vp->getConstraint(loadNode, isGlobal);
-             TR_OpaqueClassBlock* lhsClass = loadConstraint ? loadConstraint->getClass() : NULL;
+             TR::VPConstraint *loadConstraint2 = vp->getConstraint(loadNode->getFirstChild(), isGlobal);
+             objectClass = loadConstraint ? loadConstraint->getClass() : NULL;
+             traceMsg(vp->comp(), "constraint1: %p ", loadConstraint, loadConstraint2);
+             loadConstraint->print(vp);
+             traceMsg(vp->comp(), "constraint2: %p ", loadConstraint2);
+             loadConstraint2->print(vp);
+             traceMsg(vp->comp(), "\n");
 
+             isFixedClass = loadConstraint && loadConstraint->isFixedClass();
+
+             inlinedMethodClass = vp->comp()->fe()->getClassFromMethodBlock((TR_OpaqueMethodBlock*)methodPtrNode->getAddress());
+             traceMsg(vp->comp(), "objectClass: %p, inlinedMethodClass: %p\n", objectClass, inlinedMethodClass);
+
+             TR_PersistentCHTable *chTable = vp->comp()->getPersistentInfo()->getPersistentCHTable();
+             traceMsg(vp->comp(), "callNode: %p\n", callNode);
+             traceMsg(vp->comp(), "callNode->getSymbolReference(): %p\n", callNode->getSymbolReference());
+             TR_ResolvedMethod* resolvedMethod = callNode->getSymbolReference()->getSymbol()->getResolvedMethodSymbol()->getResolvedMethod();
+             traceMsg(vp->comp(), "resolvedMethod: %p\n", resolvedMethod);
+             int32_t vftSlot = callNode->getSymbolReference()->getOffset();
+             // If method is overridden, don't do the transformation
+             traceMsg(vp->comp(), "resolvedMethod: %p, inlinedMethodClass: %p, vftSlot: %d\n", resolvedMethod, inlinedMethodClass, vftSlot);
+             if (chTable->isOverriddenInThisHierarchy(resolvedMethod, inlinedMethodClass, vftSlot, vp->comp()))
+                {
+                traceMsg(vp->comp(), "vp: overridden\n");
+                objectClass = NULL;
+                rhsClass = NULL;
+                }
+             else
+                {
+                traceMsg(vp->comp(), "vp: not overridden\n");
+                }
+             /*
              traceMsg(vp->comp(), "lhsClass: %x, classFromMethod: %x", lhsClass, classFromMethod);
              bool lhsMoreSpecific = lhsClass && classFromMethod
                 && ((lhsClass == classFromMethod) || (vp->comp()->fe()->isInstanceOf(lhsClass, classFromMethod, true)));
@@ -9785,6 +9819,11 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
                          }
                    }
                 }
+                */
+             }
+          else
+             {
+             isFixedClass = lhs && lhs->isFixedClass();
              }
 
           TR_OpaqueClassBlock* callClass = NULL;
@@ -9827,8 +9866,11 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
           //of a call and the type of a receiver (e.g. abstract, interface, normal classes)
           //if findSingleImplementer returns a method than it must be the implementation Inliner used since
           //it would be the only one available
-          if (objectClass && rhsClass && callClass && !lhs->isFixedClass() &&
-              vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes &&
+          //if (objectClass && rhsClass && callClass && !isFixedClass &&
+          //    vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes &&
+          //    vp->comp()->fe()->isInstanceOf (objectClass, callClass, true, true, true) == TR_yes) /*the object class may be less specific than callClass*/
+          if (objectClass && callClass && !isFixedClass &&
+              (((isMethodTest && inlinedMethodClass && vp->comp()->fe()->isInstanceOf (objectClass, inlinedMethodClass, true, true, true) == TR_yes)) || (rhsClass && vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes)) &&
               vp->comp()->fe()->isInstanceOf (objectClass, callClass, true, true, true) == TR_yes) /*the object class may be less specific than callClass*/
              {
 
