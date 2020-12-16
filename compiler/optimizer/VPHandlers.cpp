@@ -9745,81 +9745,46 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
        if (!disableProfiled2Overridden && callNode && vp->lastTimeThrough())
           {
           bool isFixedClass = false;
-          TR::Node *methodPtrNode = node->getSecondChild();
+
+          // If the guard has a method test, then we need to get objectClass
+          // from the child of the lhs node (a load of a vft symbol).
+          // We also need to ensure that the method of the original call node is
+          // not overridden in the hierarchy of the receiver's class.
+          static const char* disableMethodTest2Hierarchy = feGetEnv ("TR_DisableMethodTest2Hierarchy");
           bool isMethodTest = vp->comp()->getSymRefTab()->isVtableEntrySymbolRef(node->getFirstChild()->getSymbolReference());
           TR_OpaqueClassBlock* inlinedMethodClass = NULL;
-          if (isMethodTest && !callNode->getSymbolReference()->isUnresolved())
+          if (!disableMethodTest2Hierarchy && isMethodTest && !callNode->getSymbolReference()->isUnresolved())
              {
-             traceMsg(vp->comp(), "isMethodTest\n");
              // If the profiled guard is a method test, get objectClass from the
-             // child of the lhs node and rhsClass from the method pointer.
+             // child of the lhs node.
              TR::Node *loadNode = node->getFirstChild()->getFirstChild();
              bool isGlobal = false;
              TR::VPConstraint *loadConstraint = vp->getConstraint(loadNode, isGlobal);
-             TR::VPConstraint *loadConstraint2 = vp->getConstraint(loadNode->getFirstChild(), isGlobal);
              objectClass = loadConstraint ? loadConstraint->getClass() : NULL;
-             traceMsg(vp->comp(), "constraint1: %p ", loadConstraint, loadConstraint2);
-             loadConstraint->print(vp);
-             traceMsg(vp->comp(), "constraint2: %p ", loadConstraint2);
-             loadConstraint2->print(vp);
-             traceMsg(vp->comp(), "\n");
-
              isFixedClass = loadConstraint && loadConstraint->isFixedClass();
 
+             TR::Node *methodPtrNode = node->getSecondChild();
              inlinedMethodClass = vp->comp()->fe()->getClassFromMethodBlock((TR_OpaqueMethodBlock*)methodPtrNode->getAddress());
-             traceMsg(vp->comp(), "objectClass: %p, inlinedMethodClass: %p\n", objectClass, inlinedMethodClass);
 
              TR_PersistentCHTable *chTable = vp->comp()->getPersistentInfo()->getPersistentCHTable();
-             traceMsg(vp->comp(), "callNode: %p\n", callNode);
-             traceMsg(vp->comp(), "callNode->getSymbolReference(): %p\n", callNode->getSymbolReference());
              TR_ResolvedMethod* resolvedMethod = callNode->getSymbolReference()->getSymbol()->getResolvedMethodSymbol()->getResolvedMethod();
-             traceMsg(vp->comp(), "resolvedMethod: %p\n", resolvedMethod);
              int32_t vftSlot = callNode->getSymbolReference()->getOffset();
-             // If method is overridden, don't do the transformation
-             traceMsg(vp->comp(), "resolvedMethod: %p, inlinedMethodClass: %p, vftSlot: %d\n", resolvedMethod, inlinedMethodClass, vftSlot);
-             if (chTable->isOverriddenInThisHierarchy(resolvedMethod, inlinedMethodClass, vftSlot, vp->comp()))
+             if (objectClass && !chTable->isOverriddenInThisHierarchy(resolvedMethod, objectClass, vftSlot, vp->comp()))
                 {
-                traceMsg(vp->comp(), "vp: overridden\n");
-                objectClass = NULL;
-                rhsClass = NULL;
+                if (vp->trace())
+                   {
+                   traceMsg(vp->comp(), "P2O: Found profiled guard with method test where method is not overidden in the hierarchy of the receiver's class.\n"
+                                        "   Child of lhs has constraint: ");
+                   loadConstraint->print(vp);
+                   traceMsg(vp->comp(), "\n");
+                   }
                 }
              else
                 {
-                traceMsg(vp->comp(), "vp: not overridden\n");
+                // If method is overridden, set objectClass to null so that the
+                // transformation is not performed.
+                objectClass = NULL;
                 }
-             /*
-             traceMsg(vp->comp(), "lhsClass: %x, classFromMethod: %x", lhsClass, classFromMethod);
-             bool lhsMoreSpecific = lhsClass && classFromMethod
-                && ((lhsClass == classFromMethod) || (vp->comp()->fe()->isInstanceOf(lhsClass, classFromMethod, true)));
-
-             if (lhsMoreSpecific && methodPtrNode->getSymbolReference() && !methodPtrNode->getSymbolReference()->isUnresolved())
-                {
-                traceMsg(vp->comp(), "lhsMoreSpecific");
-                TR_PersistentCHTable *chTable = vp->comp()->getPersistentInfo()->getPersistentCHTable();
-                TR_ResolvedMethod* resolvedMethod = methodPtrNode->getSymbolReference()->getSymbol()->getResolvedMethodSymbol()->getResolvedMethod();
-                int32_t vftSlot = callNode->getSymbolReference()->getOffset();
-                if (!chTable->isOverriddenInThisHierarchy(resolvedMethod, lhsClass, vftSlot, vp->comp()) &&
-                   !vp->comp()->getOption(TR_DisableHierarchyInlining))
-                   {
-                      traceMsg(vp->comp(), "not overridden");
-                      if(vp->comp()->trace(OMR::inlining))
-                         {
-                         int32_t len;
-                         bool isClassObsolete = vp->comp()->getPersistentInfo()->isObsoleteClass((void*)lhsClass, vp->comp()->fe());
-                         if(!isClassObsolete)
-                            {
-                            char *s = TR::Compiler->cls.classNameChars(vp->comp(), lhsClass, len);
-                            traceMsg(vp->comp(),"vphandlers: Virtual call to %s is not overridden in the hierarchy of thisClass %*s\n", resolvedMethod->signature(vp->comp()->trMemory()), len, s);
-                            addDelayedConvertedGuard(node, callNode, NULL, vGuard, vp, TR_HierarchyGuard, TR_VftTest, lhsClass);
-                            }
-                         else
-                            {
-                            traceMsg(vp->comp(),"vphandlers: Virtual call to %s is not overridden in the hierarchy of thisClass <obsolete class>\n", resolvedMethod->signature(vp->comp()->trMemory()));
-                            }
-                         }
-                   }
-                }
-                */
              }
           else
              {
@@ -9870,7 +9835,8 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
           //    vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes &&
           //    vp->comp()->fe()->isInstanceOf (objectClass, callClass, true, true, true) == TR_yes) /*the object class may be less specific than callClass*/
           if (objectClass && callClass && !isFixedClass &&
-              (((isMethodTest && inlinedMethodClass && vp->comp()->fe()->isInstanceOf (objectClass, inlinedMethodClass, true, true, true) == TR_yes)) || (rhsClass && vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes)) &&
+              (((isMethodTest && inlinedMethodClass && vp->comp()->fe()->isInstanceOf (objectClass, inlinedMethodClass, true, true, true) == TR_yes))
+               || (rhsClass && vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes)) &&
               vp->comp()->fe()->isInstanceOf (objectClass, callClass, true, true, true) == TR_yes) /*the object class may be less specific than callClass*/
              {
 
