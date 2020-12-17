@@ -9832,8 +9832,8 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
           //if findSingleImplementer returns a method than it must be the implementation Inliner used since
           //it would be the only one available
           if (objectClass && callClass && !isFixedClass &&
-              (((isMethodTest && inlinedMethodClass && vp->comp()->fe()->isInstanceOf (objectClass, inlinedMethodClass, true, true, true) == TR_yes))
-               || (rhsClass && vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, false) == TR_yes)) &&
+              (((isMethodTest && inlinedMethodClass && vp->comp()->fe()->isInstanceOf (objectClass, inlinedMethodClass, true, true, false) == TR_yes))
+               || (rhsClass && vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes)) &&
               vp->comp()->fe()->isInstanceOf (objectClass, callClass, true, true, true) == TR_yes) /*the object class may be less specific than callClass*/
              {
 
