@@ -9748,8 +9748,8 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
 
           // If the guard has a method test, then we need to get objectClass
           // from the child of the lhs node (a load of a vft symbol).
-          // We also need to ensure that the method of the original call node is
-          // not overridden in the hierarchy of the receiver's class.
+          // We also need to ensure that the inlined method is not overridden in
+          // the hierarchy of the receiver's class.
           static const char* disableMethodTest2Hierarchy = feGetEnv ("TR_DisableMethodTest2Hierarchy");
           bool isMethodTest = vp->comp()->getSymRefTab()->isVtableEntrySymbolRef(node->getFirstChild()->getSymbolReference());
           TR_OpaqueClassBlock* inlinedMethodClass = NULL;
@@ -9767,9 +9767,9 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
              inlinedMethodClass = vp->comp()->fe()->getClassFromMethodBlock((TR_OpaqueMethodBlock*)methodPtrNode->getAddress());
 
              TR_PersistentCHTable *chTable = vp->comp()->getPersistentInfo()->getPersistentCHTable();
-             TR_ResolvedMethod* resolvedMethod = callNode->getSymbolReference()->getSymbol()->getResolvedMethodSymbol()->getResolvedMethod();
+             TR_ResolvedMethod* inlinedMethod = vp->comp()->getInlinedResolvedMethod(vGuard->getCurrentInlinedSiteIndex());
              int32_t vftSlot = callNode->getSymbolReference()->getOffset();
-             if (objectClass && !chTable->isOverriddenInThisHierarchy(resolvedMethod, objectClass, vftSlot, vp->comp()))
+             if (objectClass && !chTable->isOverriddenInThisHierarchy(inlinedMethod, objectClass, vftSlot, vp->comp()))
                 {
                 if (vp->trace())
                    {
@@ -9831,12 +9831,9 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
           //of a call and the type of a receiver (e.g. abstract, interface, normal classes)
           //if findSingleImplementer returns a method than it must be the implementation Inliner used since
           //it would be the only one available
-          //if (objectClass && rhsClass && callClass && !isFixedClass &&
-          //    vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes &&
-          //    vp->comp()->fe()->isInstanceOf (objectClass, callClass, true, true, true) == TR_yes) /*the object class may be less specific than callClass*/
           if (objectClass && callClass && !isFixedClass &&
               (((isMethodTest && inlinedMethodClass && vp->comp()->fe()->isInstanceOf (objectClass, inlinedMethodClass, true, true, true) == TR_yes))
-               || (rhsClass && vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, true) == TR_yes)) &&
+               || (rhsClass && vp->comp()->fe()->isInstanceOf (rhsClass, objectClass, true, true, false) == TR_yes)) &&
               vp->comp()->fe()->isInstanceOf (objectClass, callClass, true, true, true) == TR_yes) /*the object class may be less specific than callClass*/
              {
 
